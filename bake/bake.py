@@ -5,31 +5,41 @@ import json
 import os
 
 
-def main() -> None:
-    dir: str       = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+code: list[str] = []
+proj: dict      = {}
+
+
+def read(path: str) -> list[str]:
+    global code, proj
+    code = []
     raw: list[str] = []
 
-    os.chdir(dir)
+    os.chdir(path)
 
     for _, _, files in os.walk('.'):
         for file in files:
-            if not file.endswith('.cake'):
-                continue
+            if file == 'cake.json':
+                with open(f'{path}/{file}') as f:
+                    proj = json.load(f)
 
-            with open(f'{dir}/{file}') as f:
-                for line in f:
-                    raw.append(line)
-
-    code: list[str] = []
+            elif file.endswith('.cake'):
+                with open(f'{path}/{file}') as f:
+                    for line in f:
+                        raw.append(line)
 
     for line in raw:
-        if line not in ('', '\n'):
-            if line.endswith('\r'):
-                line = line[:-1]
-            if line.endswith('\n'):
-                line = line[:-1]
+        if line in ('', '\n'):
+            continue
 
-            code.append(line.strip())
+        if line.endswith('\n'):
+            line = line[:-1]
+
+        code.append(line.strip())
+
+
+def main() -> None:
+    dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+    read(dir)
 
     pass
 
