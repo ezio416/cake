@@ -1,4 +1,4 @@
-# cake
+# &#127874; cake &#127874;
 
 cake is a programming language designed to be fast and easy to use. The name "cake" and its components are always lowercase. The language is still in very early development - there is currently no support for imports/includes, classes, enums, C/C++ interoperability, and many other features. *If you haven't made your own language, can you really call yourself a programmer?*
 
