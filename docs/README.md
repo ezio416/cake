@@ -1,14 +1,14 @@
 # &#127874; cake &#127874;
 
-cake is a programming language designed to be fast and easy to use. The name "cake" and its components are always lowercase. The language is still in very early development - there is currently no support for imports/includes, classes, enums, C/C++ interoperability, and many other features. *If you haven't made your own language, can you really call yourself a programmer?*
+cake is a statically-typed programming language with a syntax much like that of C++ that is designed to be fast and easy to use. The name "cake" and its components are always lowercase. The language is still in very early development - there is currently no support for imports/includes, classes, enums, language interoperability, and many other features. *If you haven't made your own language, can you really call yourself a programmer?*
 
 ## Compilation
-cake is a transpiled language. This means that cake code (`.cake`) is first converted into C code (`.cake.c`), which is then compiled into an executable with [GCC](https://gcc.gnu.org/). This is done to ease development of the language and to maintain cross-platform support. The cake compiler is called "bake." *Get it? You bake a cake? I'm very funny, I know.*
+cake is a transpiled language. This means that cake code (`.cake`) is first converted into C code (`.cake.c`), which is then compiled into an executable using [GCC](https://gcc.gnu.org/). This is done to ease development of the language and to maintain cross-platform support. The cake compiler is called "bake." *Get it? You bake a cake? I'm very funny, I know.*
 
 ## Project Structure
 Every cake project has 2 main elements: a project file and source code. *You can have more, of course. Don't limit yourself!*
 
-The project file is named `cake.json`. Only the "name" field is required, all others are optional.
+The project file is named `cake.json`. Only the "name" field is required - all others are optional.
 ```json
 {
     "name": "cake_example",
@@ -65,11 +65,11 @@ Literal values in cake have some rules.
 bool  b = true;         // booleans are true or false
 
 float f = 1.0;          // floats have at least a unit digit, a decimal, and a tenths digit
-float g = 5.2e3;        // engineering notation (5.2 * 10^3 or 5200.0)
+float g = 5.2e3;        // engineering notation (5.2 * 10**3 or 5200.0)
 float h = 1'234.567'8;  // single quotes can be used as separators
 
 int   i = 3;            // integers are just digits
-int   j = 2e71;         // engineering notation (2 * 10^71 or really big)
+int   j = 2e71;         // engineering notation (2 * 10**71 or really big)
 int   k = 1'234;        // single quotes can be used as separators
 
 str   s = "<3";         // strings are in "double quotes"
@@ -84,7 +84,7 @@ int i = 0;          // arbitrary integer, currently 1 byte wide (-128 - 127)
 i = i + 128;        // grows to 2 bytes (-256 - 255)
 i = i - 1;          // shrinks back to 1 byte
 
-int j = 2^31 - 1;   // 4 bytes wide (-2.1B - 2.1B)
+int j = 2**31 - 1;  // 4 bytes wide (-2.1B - 2.1B)
 j = j + 1;          // grows to 5 bytes (-549B - 549B)
 
 int k = 1e100;      // 334 bytes wide
@@ -169,9 +169,9 @@ int i = 0;
 
 // incrementing an integer
 i.OpAssign(i + 1);
-i.OpAdd(1);  // OpSub, OpMul, OpExp, OpDiv, OpMod
+i.OpAdd(1);  // OpSub, OpMul, OpDiv, OpExp, OpMod
 i = i + 1;
-i += 1;      // supports +, -, *, ^, /, %
+i += 1;      // supports +, -, *, /, **, %
 i++;         // supports +, -
 
 // creating an array

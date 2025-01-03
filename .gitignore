@@ -5,6 +5,7 @@
 
 
 # Folders
+__pycache__/
 output/
 
 # Various
