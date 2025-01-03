@@ -209,3 +209,6 @@ std::print(str s);  // prints to the console
 ## Reserved Keywords
 cake has a number of reserved keywords that serve a special purpose so they cannot be used for variables, functions, etc.\
 `and`, `arr`, `bool`, `class`, `const`, `dict`, `enum`, `explicit`, `float`, `int`, `intN` (any digits for `N`), `nand`, `nor`, `not`, `nox`, `null`, `or`, `return`, `std`, `str`, `strN` (any digits for `N`), `struct`
+
+\
+&copy; 2025 Ezio416
