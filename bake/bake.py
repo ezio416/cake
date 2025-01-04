@@ -1,18 +1,36 @@
 # c 2025-01-02
-# m 2025-01-02
+# m 2025-01-03
 
 import json
 import os
+import re
 
 
-code: list[str] = []
-proj: dict      = {}
+class Block:
+    pass
 
 
-def read(path: str) -> list[str]:
-    global code, proj
-    code = []
-    raw: list[str] = []
+class Line:
+    def __init__(self, filename: str, line: int, text: str):
+        self.filename: str = filename
+        self.line:     int = line
+
+        self.text: str = text
+        if self.text.endswith('\n'):
+            self.text = self.text[:-1]
+
+    def __repr__(self) -> str:
+        return f'{type(self)} {self.filename} {self.line}'
+
+
+def lex(lines: list[Line]) -> list[Block]:
+    for line in lines:
+        pass
+
+
+def read(path: str) -> tuple[dict, list[Line]]:
+    proj:  dict       = {}
+    lines: list[Line] = []
 
     os.chdir(path)
 
@@ -24,22 +42,20 @@ def read(path: str) -> list[str]:
 
             elif file.endswith('.cake'):
                 with open(f'{path}/{file}') as f:
-                    for line in f:
-                        raw.append(line)
+                    for i, line in enumerate(f):
+                        line = line.strip()
+                        if line in ('', '\n') or line.startswith(('//', '#')):
+                            continue
+                        lines.append(Line(f'{path}/{file}', i + 1, line))
 
-    for line in raw:
-        if line in ('', '\n'):
-            continue
-
-        if line.endswith('\n'):
-            line = line[:-1]
-
-        code.append(line.strip())
+    return proj, lines
 
 
 def main() -> None:
     dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
-    read(dir)
+    proj, lines = read(dir)
+
+    # blocks: list[Block] = lex(lines)
 
     pass
 
