@@ -1,0 +1,35 @@
+# c 2025-01-04
+# m 2025-01-04
+
+KEYWORDS: tuple[str] = (
+    'and',
+    'arr',
+    'base',
+    'bool',
+    'cast',
+    'class',
+    'const',
+    'dec',
+    'dict',
+    'enum',
+    'final',
+    'float',
+    'int',
+    'namespace',
+    'nand',
+    'nor',
+    'not',
+    'nox',
+    'null',
+    'or',
+    'override',
+    'ptr',
+    'return',
+    'static',
+    'std',
+    'str',
+    'struct',
+    'void',
+    'with',
+    'xor'
+)

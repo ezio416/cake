@@ -1,45 +1,25 @@
 # c 2025-01-02
-# m 2025-01-03
+# m 2025-01-04
 
 import json
 import os
 import re
 
-
-class Block:
-    pass
-
-
-class Char:
-    def __init__(self, line, column: int, char: str):
-        self.line         = line
-        self.column: int  = column
-        self.char:   str  = char
-
-    def __repr__(self) -> str:
-        return f'{self.line.__repr__()} {self.column} "{self.char}"'
+from lexing.lexer import Lexer
+from lexing.line import Line
+from lexing.token import Token
+from util.error import LanguageError
 
 
-class Line:
-    def __init__(self, filename: str, line: int, text: str):
-        self.filename: str = filename
-        self.line:     int = line
+def lex(lines: list[Line]) -> list[Token]:
+    lexer = Lexer()
+    tokens: list[Token] = []
 
-        self.text: str = text
-        if self.text.endswith('\n'):
-            self.text = self.text[:-1]
+    for line in lines:
+        tok: list[Token] = lexer.make_tokens(line)
+        pass
 
-        self.chars: list[Char] = []
-
-    def __repr__(self) -> str:
-        return f'{type(self)} {self.filename} {self.line}'
-
-    def add_char(self, char: Char) -> None:
-        self.chars.append(char)
-
-
-def lex(lines: list[Line]) -> list[Block]:
-    pass
+    return tokens
 
 
 def read(path: str) -> tuple[dict, list[Line]]:
@@ -61,13 +41,13 @@ def read(path: str) -> tuple[dict, list[Line]]:
                         raw.append(Line(f'{path}/{file}', i + 1, line))
 
     for line in raw:
-        line.text = line.text.strip()
-        if line.text in ('', '\n') or line.text.startswith(('//', '#')):
+        strp: str = line.text.strip()
+        if strp in ('', '\n') or strp.startswith(('//', '#')):
             continue
 
-        for i, c in enumerate(line.text):
-            char: Char = Char(line, i, c)
-            line.add_char(char)
+        # for i, c in enumerate(line.text):
+        #     char: Char = Char(line, i, c)
+        #     line.add_char(char)
 
         lines.append(line)
 
@@ -75,12 +55,27 @@ def read(path: str) -> tuple[dict, list[Line]]:
 
 
 def main() -> None:
-    dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
-    proj, lines = read(dir)
+    # dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+    # proj, lines = read(dir)
+    # tokens: list[Token] = lex(lines)
 
-    # blocks: list[Block] = lex(lines)
+    print('cake 0.1.0 (interactive): ')
+    lexer = Lexer()
 
-    pass
+    while True:
+        text: str = input('> ')
+        if text == '':
+            continue
+        if text == 'exit':
+            break
+
+        try:
+            line: Line = Line('interactive', 0, text)
+            tokens = lexer.make_tokens(line)
+            print(tokens)
+
+        except LanguageError as e:
+            print(e)
 
 
 if __name__ == '__main__':
