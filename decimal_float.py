@@ -28,7 +28,10 @@ class dec:
         return f'{type(self)} {self.binary()}'
 
     def __str__(self) -> str:
-        ret: str = f'0{self.man}0'
+        ret: str = str(self.man)
+        man_digits: int = len(ret) - 1
+        ret = f'{'0' * (self.exp_len - man_digits)}{ret}'
+        ret = f'{ret}{'0' * self.exp_len}'
         ret = f'{ret[:self.exp]}.{ret[self.exp:]}'
         ret = ret.lstrip('0').rstrip('0')
         if ret.startswith('.'):
@@ -44,31 +47,40 @@ class dec:
 
 class dec1(dec):
     '''
-    1-byte decimal floating point number
-    2 significant figures
-    {
-        [-31.0,-0.01],
+    - 1-byte signed decimal floating point number
+    - 1 significant figure (or 2 if <= 15)
+    - range {
+        [-15000.0,-0.00001],
         -0.0,
         0.0,
-        [0.01,31.0]
+        [0.00001,15000.0]
     }
     '''
 
     def __init__(self, bits: list[bool] = []):
-        super().__init__(bits, 2, 5)
+        super().__init__(bits, 3, 4)
 
 
 def main() -> None:
-    while True:
-        print('give me 8 bits')
+    # d = dec1([0,0,0,0,1,0,1,0])
+    # print(d)
 
-        s = input('> ')
-        if len(s) != 8:
-            print('bad input')
-            continue
+    # while True:
+    #     print('give me 8 bits')
 
-        f: dec1 = dec1([int(i) for i in s])
-        print(f)
+    #     s = input('> ')
+    #     if len(s) != 8:
+    #         print('bad input')
+    #         continue
+
+    #     f: dec1 = dec1([int(i) for i in s])
+    #     print(f)
+
+    for i in range(256):
+        b: str  = bin(i).replace('0b', '').rjust(8, '0')
+        d: dec1 = dec1([int(c) for c in b])
+        e: str = f'{str(i).zfill(3)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
+        print(f'{e} {d}')
 
 
 if __name__ == '__main__':
