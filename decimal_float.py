@@ -50,12 +50,12 @@ class dec:
 class dec1(dec):
     '''
     - 1-byte signed decimal floating point number
-    - 1 significant figure (or 2 if <= 15)
+    - 1 significant figure (or 2 if < 16)
     - range {
-        [-15000.0,-0.00001],
+        [-15'000.0,-0.00001],
         -0.0,
         0.0,
-        [0.00001,15000.0]
+        [0.00001,15'000.0]
     }
     '''
 
@@ -66,17 +66,33 @@ class dec1(dec):
 class dec2(dec):
     '''
     - 2-byte signed decimal floating point number
-    - 3 significant figures (or 4 if <= 1024)
+    - 3 significant figures (or 4 if < 1'024)
     - range {
-        [-1023.0e15,-1.0e-16,
+        [-102.3e16,-1.0e-16,
         -0.0,
         0.0,
-        [1.0e-16,1023.0e15]
+        [1.0e-16,102.3e16]
     }
     '''
 
     def __init__(self, bits: list[bool] = []):
         super().__init__(bits, 5, 10)
+
+
+class dec3(dec):
+    '''
+    - 3-byte signed decimal floating point number
+    - 5 significant figures (or 6 if < 131'072)
+    - range {
+        [-13'107.2e32,-1.0e-32,
+        -0.0,
+        0.0,
+        [1.0e-32,13'107.2e32]
+    }
+    '''
+
+    def __init__(self, bits: list[bool] = []):
+        super().__init__(bits, 6, 17)
 
 
 def main() -> None:
@@ -102,6 +118,17 @@ def main() -> None:
     #     f: dec2 = dec2([int(i) for i in s])
     #     print(f)
 
+    # while True:
+    #     print('give me 24 bits')
+
+    #     s = input('> ')
+    #     if len(s) != 24:
+    #         print('bad input')
+    #         continue
+
+    #     f: dec3 = dec3([int(i) for i in s])
+    #     print(f)
+
     lines: list[str] = []
 
     # for i in range(256):
@@ -114,15 +141,32 @@ def main() -> None:
     # with open('dec1.txt', 'w', newline='\n') as f:
     #     f.writelines(lines)
 
-    for i in range(65536):
-        b: str  = bin(i).replace('0b', '').rjust(16, '0')
-        d: dec2 = dec2([int(c) for c in b])
-        e: str = f'{str(i).zfill(6)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
-        # print(f'{e} {d}')
-        lines.append(f'{e} {d}\n')
+    # for i in range(65536):
+    #     b: str  = bin(i).replace('0b', '').rjust(16, '0')
+    #     d: dec2 = dec2([int(c) for c in b])
+    #     e: str = f'{str(i).zfill(5)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
+    #     # print(f'{e} {d}')
+    #     lines.append(f'{e} {d}\n')
 
-    with open('dec2.txt', 'w', newline='\n') as f:
-        f.writelines(lines)
+    # with open('dec2.txt', 'w', newline='\n') as f:
+    #     f.writelines(lines)
+
+    # for i in range(16777216):
+    #     if not i % 1000000:
+    #         print(i)
+    #         # if i:
+    #         #     break
+
+    #     b: str  = bin(i).replace('0b', '').rjust(24, '0')
+    #     d: dec3 = dec3([int(c) for c in b])
+    #     e: str = f'{str(i).zfill(8)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
+    #     # print(f'{e} {d}')
+    #     line: str = f'{e} {d}\n'
+    #     lines.append(line)
+
+    # with open('dec3.txt', 'w', newline='\n') as f:
+    #     for line in lines:
+    #         f.write(line)
 
 
 if __name__ == '__main__':
