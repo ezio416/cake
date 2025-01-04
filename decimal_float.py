@@ -29,17 +29,19 @@ class dec:
 
     def __str__(self) -> str:
         ret: str = str(self.man)
-        man_digits: int = len(ret) - 1
-        ret = f'{'0' * (self.exp_len - man_digits)}{ret}'
-        ret = f'{ret}{'0' * self.exp_len}'
-        ret = f'{ret[:self.exp]}.{ret[self.exp:]}'
-        ret = ret.lstrip('0').rstrip('0')
-        if ret.startswith('.'):
-            ret = f'0{ret}'
-        if ret.endswith('.'):
-            ret = f'{ret}0'
+        z_count: int = 2 << (self.exp_len - 2)
 
-        return f'{self.sign}{ret}'
+        ret1: str = f'{'0' * (z_count - len(ret))}{ret}{'0' * z_count}'
+        ret2: str = f'{ret1[:self.exp]}.{ret1[self.exp:]}'
+        ret3: str = ret2.lstrip('0').rstrip('0')
+
+        ret4: str = str(ret3)
+        if ret4.startswith('.'):
+            ret4 = f'0{ret4}'
+        if ret4.endswith('.'):
+            ret4 = f'{ret4}0'
+
+        return f'{self.sign}{ret4}'
 
     def binary(self) -> str:
         return ''.join('1' if bit else '0' for bit in self.bits)
@@ -61,10 +63,23 @@ class dec1(dec):
         super().__init__(bits, 3, 4)
 
 
-def main() -> None:
-    # d = dec1([0,0,0,0,1,0,1,0])
-    # print(d)
+class dec2(dec):
+    '''
+    - 2-byte signed decimal floating point number
+    - 3 significant figures (or 4 if <= 1024)
+    - range {
+        [-1023.0e15,-1.0e-16,
+        -0.0,
+        0.0,
+        [1.0e-16,1023.0e15]
+    }
+    '''
 
+    def __init__(self, bits: list[bool] = []):
+        super().__init__(bits, 5, 10)
+
+
+def main() -> None:
     # while True:
     #     print('give me 8 bits')
 
@@ -76,11 +91,38 @@ def main() -> None:
     #     f: dec1 = dec1([int(i) for i in s])
     #     print(f)
 
-    for i in range(256):
-        b: str  = bin(i).replace('0b', '').rjust(8, '0')
-        d: dec1 = dec1([int(c) for c in b])
-        e: str = f'{str(i).zfill(3)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
-        print(f'{e} {d}')
+    # while True:
+    #     print('give me 16 bits')
+
+    #     s = input('> ')
+    #     if len(s) != 16:
+    #         print('bad input')
+    #         continue
+
+    #     f: dec2 = dec2([int(i) for i in s])
+    #     print(f)
+
+    lines: list[str] = []
+
+    # for i in range(256):
+    #     b: str  = bin(i).replace('0b', '').rjust(8, '0')
+    #     d: dec1 = dec1([int(c) for c in b])
+    #     e: str = f'{str(i).zfill(3)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
+    #     # print(f'{e} {d}')
+    #     lines.append(f'{e} {d}\n')
+
+    # with open('dec1.txt', 'w', newline='\n') as f:
+    #     f.writelines(lines)
+
+    for i in range(65536):
+        b: str  = bin(i).replace('0b', '').rjust(16, '0')
+        d: dec2 = dec2([int(c) for c in b])
+        e: str = f'{str(i).zfill(6)} {b[0]} {b[1:d.exp_len + 1]} {b[d.exp_len + 1:]}'
+        # print(f'{e} {d}')
+        lines.append(f'{e} {d}\n')
+
+    with open('dec2.txt', 'w', newline='\n') as f:
+        f.writelines(lines)
 
 
 if __name__ == '__main__':
