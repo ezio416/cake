@@ -61,22 +61,21 @@ class Lexer:
         self.line.take()
 
         while True:
-            acted: bool = False
+            took: bool = False
 
             if self.line.taken().endswith('\\') and self.line.next() == '"':
                 self.line.take()
-                acted = True
+                took = True
 
             while self.line.next() not in '"EOF':
                 self.line.take()
-                acted = True
+                took = True
 
-            if not acted:
+            if not took:
                 break
 
-        self.line.take()
-
-        if self.line.taken().endswith('"'):
+        if self.line.next() == '"':
+            self.line.take()
             return self.new_token('String')
 
         raise LexerError(self.new_token('String'), f'dangling string\n  {self.line.text}')
