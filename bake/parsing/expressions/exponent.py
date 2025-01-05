@@ -16,3 +16,8 @@ class ExponentialExpression(BinaryNode):
         op = parser.take()
         right = ExponentialExpression.construct(parser)
         return ExponentialExpression(node, op, right)
+
+    def interpret(self):
+        left = self.left.interpret()
+        right = self.right.interpret()
+        return left**right

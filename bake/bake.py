@@ -19,6 +19,7 @@ def lex(lines: list[Line]) -> list[Token]:
     for line in lines:
         tokens += lexer.make_tokens(line)
 
+    tokens.append(lexer.new_token('Punctuator'))
     return tokens
 
 
@@ -64,6 +65,8 @@ def main() -> None:
     lexer  = Lexer()
     parser = Parser()
 
+    last = None
+
     while True:
         text: str = input('> ')
         if text == '':
@@ -74,9 +77,12 @@ def main() -> None:
         try:
             line: Line = Line('interactive', 0, text)
             tokens = lexer.make_tokens(line)
+            tokens.append(lexer.new_token('Punctuator'))
             tree = parser.make_tree(tokens)
             print(tokens)
             print(tree)
+            last = tree.interpret()
+            print(last)
 
         except LanguageError as e:
             print(e)

@@ -15,9 +15,20 @@ class UnaryExpression(Node):
 
     @classmethod
     def construct(cls, parser):
-        if parser.next().has('+', '-'):
+        if parser.next().has('+', '-', '~'):
             op = parser.take()
             expression = UnaryExpression.construct(parser)
             return UnaryExpression(op, expression)
 
         return PrimaryExpression.construct(parser)
+
+    def interpret(self):
+        value = self.expression.interpret()
+
+        match self.op.string:
+            case '+':
+                return +value
+            case '-':
+                return -value
+            case '~':
+                return round(value)

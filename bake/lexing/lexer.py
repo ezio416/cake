@@ -29,20 +29,20 @@ class Lexer:
             self.line.ignore()
 
     def make_number(self) -> Token:
-        while self.line.next() in "0123456789.'ef":
+        while self.line.next() in "0123456789.de'":
             self.line.take()
 
         taken: str = self.line.taken()
         if all((
             taken.count('.') < 2,
-            taken.count('e') < 2,
-            taken.count('f') < 2
+            taken.count('d') < 2,
+            taken.count('e') < 2
         )):
             return self.new_token('Number')
 
         raise LexerError(
             self.new_token('Number'),
-            f"numbers can't have more than one of each of these symbols: . e f\n  {self.line.text}",
+            f"numbers can't have more than one of each of these symbols: . d e\n  {self.line.text}",
             self.line.locale[0]
         )
 
@@ -105,10 +105,10 @@ class Lexer:
         if next in '0123456789':
             return self.make_number()
 
-        if next in '!%^&*-+=|:./?_':
+        if next in '!%^&*-+~|:./?_':
             return self.make_operator()  # also comments
 
-        if next in r'<>[]{}();,':
+        if next in r'<>[]{}();,=':
             return self.make_punctuator()
 
         if next == '"':
@@ -135,7 +135,6 @@ class Lexer:
 
             tokens.append(self.make_token())
 
-        tokens.append(self.new_token('Punctuator'))
         return tokens
 
     def make_word(self) -> Token:

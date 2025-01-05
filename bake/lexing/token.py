@@ -6,15 +6,15 @@ class Token:
         self.line      = line
         self.kind: str = kind
 
-        self.locale, self.text = line.new_locale()
+        self.locale, self.string = line.new_locale()
 
-        self.text = self.text or 'EOF'
+        self.string = self.string or 'EOF'
 
     def __repr__(self) -> str:
-        return f"{self.kind[0]}'{self.text}'"
+        return f"{self.kind[0]}'{self.string}'"
 
     def has(self, *strings: str) -> bool:
-        return self.text in strings
+        return self.string in strings
 
     def mark(self) -> None:
         self.line.mark(self)

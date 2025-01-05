@@ -39,6 +39,10 @@ class Node(ABC):
     def construct(cls, parser):
         pass
 
+    @abstractmethod
+    def interpret(self):
+        pass
+
 class PrimaryNode(Node, ABC):
     def __init__(self, token):
         self.token = token

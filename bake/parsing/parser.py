@@ -31,14 +31,6 @@ class Parser:
 
         raise ParserError(self.next(), f'expecting of {kinds}')
 
-    def next(self) -> Token:
-        return self.tokens[self.i]
-
-    def take(self) -> Token:
-        token = self.next()
-        self.i += 1
-        return token
-
     def make_tree(self, tokens: list[Token]) -> None:
         self.tokens = tokens
         self.i = 0
@@ -48,3 +40,11 @@ class Parser:
             return node
 
         raise ParserError(self.next(), f'unexpected token {self.next()}')
+
+    def next(self) -> Token:
+        return self.tokens[self.i]
+
+    def take(self) -> Token:
+        token = self.next()
+        self.i += 1
+        return token

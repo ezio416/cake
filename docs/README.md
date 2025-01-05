@@ -251,12 +251,12 @@ cake has a syntax very similar to C++. Lines must be terminated with semicolons,
 ## Types
 
 ### Primitive
-cake has 8 types for storing a single value in a variable. Primitives always have a value, so if they are not given one at assignment, it will be their default value.
+cake has 8 primitive types. These always have a value, so if they are not given one at assignment, it will be their default value.
 ```cpp
 base  b = null;   // base class from which everything inherits, default null
 bool  c = false;  // boolean,                                   default false
-dec   f = 2.236;  // floating point base 10 number,             default 0.0
-float f = 2.23f;  // floating point base 2 number,              default 0.0f
+dec   d = 2.23d;  // signed floating point base 10 number,      default 0.0d
+float f = 2.236;  // signed floating point base 2 number,       default 0.0
 int   i = 7;      // signed integer,                            default 0
 ptr   p = null;   // pointer to memory,                         default null
 str   s = "hi";   // string of ASCII characters,                default ""
@@ -264,7 +264,7 @@ void  v = null;   // returned by void functions,                default null
 ```
 
 ### Container
-cake has 2 types for storing multiple values in a variable.
+cake has 2 types for storing multiple like values together.
 ```cpp
 arr<T>  a = arr<T>();   // arrays hold multiple elements of type T
 dict<T> d = dict<T>();  // dictionaries hold key (str) - value (T) pairs
@@ -294,6 +294,9 @@ str2 u = "</3";     // only stores characters up to the specified size ("</")
 
 Floating point numbers are slightly different.
 ```cpp
+dec d = 1.0d;  //
+d =
+
 float f = 1.0;  // dynamic float, currently 4 bytes wide
 f =
 ```
