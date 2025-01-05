@@ -8,4 +8,4 @@ class LanguageError(RuntimeError):
         self.message: str = message
 
     def __str__(self) -> str:
-        return f'{self.line.get_marks()}\n{type(self).__name__}: {self.message}'
+        return f'{type(self).__name__}: {self.message}'

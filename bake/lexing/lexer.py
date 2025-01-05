@@ -6,6 +6,7 @@ from .line import Line
 from .token import Token
 from util.error import LanguageError
 
+
 class LexerError(LanguageError):
     def __init__(self, component, message: str, column: int = 0):
         super().__init__(component, message)
@@ -16,6 +17,7 @@ class LexerError(LanguageError):
         if self.line.filename != 'interactive':
             msg += f', line {self.line.lineno}, column {self.column}'
         return f'{msg}): {self.message}\n{self.line.get_marks()}'
+
 
 class Lexer:
     def __init__(self):
@@ -103,10 +105,10 @@ class Lexer:
         if next in '0123456789':
             return self.make_number()
 
-        if next in '!%^&*-+=|:,./?':
+        if next in '!%^&*-+=|:./?_':
             return self.make_operator()  # also comments
 
-        if next in r'<>[]{}();':
+        if next in r'<>[]{}();,':
             return self.make_punctuator()
 
         if next == '"':

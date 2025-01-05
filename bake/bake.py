@@ -8,6 +8,7 @@ import re
 from lexing.lexer import Lexer
 from lexing.line import Line
 from lexing.token import Token
+from parsing.parser import Parser
 from util.error import LanguageError
 
 
@@ -19,6 +20,10 @@ def lex(lines: list[Line]) -> list[Token]:
         tokens += lexer.make_tokens(line)
 
     return tokens
+
+
+def parse(tokens: list[Token]) -> list:
+    return Parser().make_tree(tokens)
 
 
 def read(path: str) -> tuple[dict, list[Line]]:
@@ -50,12 +55,14 @@ def read(path: str) -> tuple[dict, list[Line]]:
 
 
 def main() -> None:
-    dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
-    proj, lines = read(dir)
-    tokens: list[Token] = lex(lines)
+    # dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+    # proj, lines = read(dir)
+    # tokens: list[Token] = lex(lines)
+    # tree = parse(tokens)
 
     print('cake 0.1.0 (interactive): ')
-    lexer = Lexer()
+    lexer  = Lexer()
+    parser = Parser()
 
     while True:
         text: str = input('> ')
@@ -67,7 +74,9 @@ def main() -> None:
         try:
             line: Line = Line('interactive', 0, text)
             tokens = lexer.make_tokens(line)
+            tree = parser.make_tree(tokens)
             print(tokens)
+            print(tree)
 
         except LanguageError as e:
             print(e)

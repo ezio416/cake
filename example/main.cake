@@ -1,5 +1,5 @@
 // c 2025-01-02
-// m 2025-01-03
+// m 2025-01-04
 
 #directive
 void main() {//hola
@@ -17,7 +17,7 @@ namespace MyNamespace {
 }
 
 class ClassA {
-    ClassA() {}
+    ClassA()   {}
     void Try() {}
 }
 
