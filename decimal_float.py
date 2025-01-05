@@ -1,7 +1,12 @@
 # c 2025-01-03
 # m 2025-01-03
 
+from math import ceil, log2
 import os
+import time
+
+
+LOG_2_10: int = log2(10)
 
 
 class dec:
@@ -50,7 +55,7 @@ class dec:
 class dec1(dec):
     '''
     - 1-byte signed decimal floating point number
-    - 1 significant figure (or 2 if < 16)
+    - 1.6 significant figures
     - range {
         [-15'000.0,-0.00001],
         -0.0,
@@ -66,7 +71,7 @@ class dec1(dec):
 class dec2(dec):
     '''
     - 2-byte signed decimal floating point number
-    - 3 significant figures (or 4 if < 1'024)
+    - 3.02 significant figures
     - range {
         [-102.3e16,-1.0e-16,
         -0.0,
@@ -82,7 +87,7 @@ class dec2(dec):
 class dec3(dec):
     '''
     - 3-byte signed decimal floating point number
-    - 5 significant figures (or 6 if < 131'072)
+    - 5.13 significant figures
     - range {
         [-13'107.2e32,-1.0e-32,
         -0.0,
@@ -93,6 +98,41 @@ class dec3(dec):
 
     def __init__(self, bits: list[bool] = []):
         super().__init__(bits, 6, 17)
+
+
+class dec4(dec):
+    '''
+    - 4-byte signed decimal floating point number
+    - 7.17 significant figures
+    - range {
+        [-e64,-1.0e-64,
+        -0.0,
+        0.0,
+        [1.0e-64,e64]
+    }
+    '''
+
+    def __init__(self, bits: list[bool] = []):
+        super().__init__(bits, 7, 24)
+
+
+class decn(dec):
+    '''
+    - n-byte signed decimal floating point number
+    - 2 * n - 1 significant figures
+    - range {
+        [-e(2**?),-1.0e-(2**?),
+        -0.0,
+        0.0,
+        [1.0e-(2**?),e(2**?)]
+    }
+    '''
+
+    def __init__(self, bits: list[bool] = [], n: int = 0):
+        # yes this uses a float but it's only an issue when over a petabyte
+        mantissa: int = ceil((2 * n - 1) * LOG_2_10)
+        exponent: int = len(bits) - mantissa
+        super().__init__(bits, exponent, mantissa)
 
 
 def main() -> None:
@@ -107,29 +147,13 @@ def main() -> None:
     #     f: dec1 = dec1([int(i) for i in s])
     #     print(f)
 
-    # while True:
-    #     print('give me 16 bits')
+    while True:
+        print('give me a number for n')
+        n: int = int(input('> '))
 
-    #     s = input('> ')
-    #     if len(s) != 16:
-    #         print('bad input')
-    #         continue
+        print(ceil((2 * n - 1) * LOG_2_10))
 
-    #     f: dec2 = dec2([int(i) for i in s])
-    #     print(f)
-
-    # while True:
-    #     print('give me 24 bits')
-
-    #     s = input('> ')
-    #     if len(s) != 24:
-    #         print('bad input')
-    #         continue
-
-    #     f: dec3 = dec3([int(i) for i in s])
-    #     print(f)
-
-    lines: list[str] = []
+    # lines: list[str] = []
 
     # for i in range(256):
     #     b: str  = bin(i).replace('0b', '').rjust(8, '0')
