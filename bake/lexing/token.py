@@ -10,9 +10,6 @@ class Token:
 
         self.text = self.text or 'EOF'
 
-        if kind == 'String' and len(self.text):
-            self.text = self.text[1:-1]
-
     def __repr__(self) -> str:
         return f"{self.kind[0]}'{self.text}'"
 

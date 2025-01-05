@@ -16,8 +16,7 @@ def lex(lines: list[Line]) -> list[Token]:
     tokens: list[Token] = []
 
     for line in lines:
-        tok: list[Token] = lexer.make_tokens(line)
-        pass
+        tokens += lexer.make_tokens(line)
 
     return tokens
 
@@ -45,19 +44,15 @@ def read(path: str) -> tuple[dict, list[Line]]:
         if strp in ('', '\n') or strp.startswith(('//', '#')):
             continue
 
-        # for i, c in enumerate(line.text):
-        #     char: Char = Char(line, i, c)
-        #     line.add_char(char)
-
         lines.append(line)
 
     return proj, lines
 
 
 def main() -> None:
-    # dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
-    # proj, lines = read(dir)
-    # tokens: list[Token] = lex(lines)
+    dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+    proj, lines = read(dir)
+    tokens: list[Token] = lex(lines)
 
     print('cake 0.1.0 (interactive): ')
     lexer = Lexer()

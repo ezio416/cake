@@ -29,6 +29,7 @@ KEYWORDS: tuple[str] = (
     'std',
     'str',
     'struct',
+    'super',
     'void',
     'with',
     'xor'

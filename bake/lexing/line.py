@@ -1,9 +1,6 @@
 # c 2025-01-04
 # m 2025-01-04
 
-# from .char import Char
-
-
 class Line:
     def __init__(self, filename: str, lineno: int, text: str):
         self.filename: str = filename
@@ -13,15 +10,11 @@ class Line:
         if self.text.endswith('\n'):
             self.text = self.text[:-1]
 
-        # self.chars:  list[Char] = []
         self.locale: list[int]  = [0, 0]
         self.marked: list[int]  = [len(self.text), -1]
 
     def __repr__(self) -> str:
         return f'{type(self)} {self.filename} {self.lineno}'
-
-    # def add_char(self, char: Char) -> None:
-    #     self.chars.append(char)
 
     def finished(self) -> bool:
         return self.locale[1] >= len(self.text)
