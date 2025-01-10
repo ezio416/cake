@@ -1,8 +1,7 @@
 // c 2025-01-02
-// m 2025-01-07
+// m 2025-01-09
 
-// #include <limits.h>
-// #include <math.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

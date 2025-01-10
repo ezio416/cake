@@ -35,7 +35,7 @@ class Writer:
             '// baker - the cake compiler (v0.1.0 copyright 2025 Ezio416)\n',
             f'// generated at {now.year}-{str(now.month).zfill(2)}-{str(now.day).zfill(2)} ',
             f'{str(now.hour).zfill(2)}:{str(now.minute).zfill(2)}:{str(now.second).zfill(2)} UTC\n',
-            '// this should be valid C code for which you may use in your compiler of choice\n',
+            '// this should be valid C code (C23) for which you may use in your compiler of choice\n',
             '// if not, please report it (with your cake code) at https://github.com/ezio416/cake/issues\n'
             f'{'/' * 91}\n',
             f'// project: {proj['name']}\n'
@@ -48,7 +48,20 @@ class Writer:
 
         with open(f'{self.dir}/{proj['name']}.cake.c', 'w', newline='\n') as f:
             f.writelines(header)
-            f.write(f'#include "{proj['name']}.cake.h"\n\n')
+
+            extra: list[str] = [
+                '#include <math.h>\n',
+                '#include <stdint.h>\n',
+                '#include <stdio.h>\n',
+                '#include <stdlib.h>\n',
+                f'#include "{proj['name']}.cake.h"\n\n',
+                'typedef bool         cake_bool;\n',
+                'typedef int_fast8_t  cake_int1;  // -128 - 127\n',
+                'typedef int_fast16_t cake_int2;  // -32768 - 32767\n',
+                'typedef int_fast32_t cake_int4;  // -2.1b - 2.1b\n',
+                'typedef int_fast64_t cake_int8;  // -9e18 - 9e18\n\n'
+            ]
+            f.writelines(extra)
 
             for block in self.blocks:
                 if block.c:
