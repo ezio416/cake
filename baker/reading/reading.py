@@ -1,5 +1,5 @@
 # c 2025-01-07
-# m 2025-01-07
+# m 2025-01-09
 
 import json
 import os
@@ -41,9 +41,25 @@ class Reader:
                         for i, line in enumerate(f):
                             raw.append(Line(path, i + 1, line))
 
+        if not self.proj:
+            raise ReaderError(self, 'invalid/missing project file')
+
+        if not self.files:
+            raise ReaderError(self, 'no files in project')
+
+        if not raw:
+            raise ReaderError(self, 'no source code in files')
+
         for line in raw:
             strp: str = line.string.strip()
             if strp in ('', '\n') or strp.startswith(('//', '#')):
                 continue
 
             self.lines.append(line)
+
+    @property
+    def line(self) -> None:
+        pass
+
+    def mark(self) -> None:
+        pass

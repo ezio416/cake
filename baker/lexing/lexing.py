@@ -1,5 +1,5 @@
 # c 2025-01-02
-# m 2025-01-08
+# m 2025-01-09
 
 import re
 
@@ -153,3 +153,11 @@ class Lexer:
 
     def new_token(self, kind: str) -> Token:
         return Token(self.line, kind)
+
+    def to_dict(self) -> list[dict]:
+        ret: list[dict] = []
+
+        for token in self.tokens:
+            ret.append({ 'k': token.kind[0], 's': token.string if token.string != 'EOF' else '' })
+
+        return ret
