@@ -31,12 +31,13 @@ class Parser:
 
         raise ParserError(self.next(), f'expecting of {kinds}')
 
-    def make_tree(self, tokens: list[Token]) -> None:
+    def make_tree(self, tokens: list[Token]):
         self.tokens = tokens
         self.i = 0
         node = Expression.construct(self)
 
-        if self.next().has('EOF'):
+        next = self.next()
+        if next.has('EOF'):
             return node
 
         raise ParserError(self.next(), f'unexpected token {self.next()}')

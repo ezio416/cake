@@ -1,8 +1,6 @@
 # c 2025-01-04
 # m 2025-01-04
 
-from math import ceil, floor
-
 from ..node import Node, PrimaryNode
 
 
@@ -18,8 +16,16 @@ class PrimaryExpression(Node):
     @classmethod
     def construct(cls, parser):
         next = parser.next()
+        if next.has('EOF'):
+            raise ValueError('unexpected EOF')
+
         if not next.has(*'<[{(|_^'):
-            return Number.construct(parser)
+            if next.kind.startswith('N'):
+                return Number.construct(parser)
+            elif next.kind.startswith('I'):
+                return Identifier.construct(parser)
+            else:
+                raise ValueError('unsupported type:', next)
 
         left = parser.take()
         expression = parser.expression.construct(parser)

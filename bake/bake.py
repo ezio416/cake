@@ -46,7 +46,7 @@ def read(path: str) -> tuple[dict, list[Line]]:
                         raw.append(Line(f'{path}/{file}', i + 1, line))
 
     for line in raw:
-        strp: str = line.text.strip()
+        strp: str = line.string.strip()
         if strp in ('', '\n') or strp.startswith(('//', '#')):
             continue
 
@@ -65,8 +65,6 @@ def main() -> None:
     lexer  = Lexer()
     parser = Parser()
 
-    last = None
-
     while True:
         text: str = input('> ')
         if text == '':
@@ -74,18 +72,18 @@ def main() -> None:
         if text == 'exit':
             break
 
-        try:
-            line: Line = Line('interactive', 0, text)
-            tokens = lexer.make_tokens(line)
-            tokens.append(lexer.new_token('Punctuator'))
-            tree = parser.make_tree(tokens)
-            print(tokens)
-            print(tree)
-            last = tree.interpret()
-            print(last)
+        # try:
+        line: Line = Line('interactive', 0, text)
 
-        except LanguageError as e:
-            print(e)
+        tokens = lexer.make_tokens(line)
+        tokens.append(lexer.new_token('Punctuator'))
+        print(tokens)
+
+        tree = parser.make_tree(tokens)
+        print(tree)
+
+        # except Exception as e:
+        #     print(e)
 
 
 if __name__ == '__main__':

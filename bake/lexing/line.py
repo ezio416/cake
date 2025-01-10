@@ -2,27 +2,27 @@
 # m 2025-01-04
 
 class Line:
-    def __init__(self, filename: str, lineno: int, text: str):
+    def __init__(self, filename: str, lineno: int, string: str):
         self.filename: str = filename
         self.lineno:   int = lineno
 
-        self.text: str = text
-        if self.text.endswith('\n'):
-            self.text = self.text[:-1]
+        self.string: str = string
+        if self.string.endswith('\n'):
+            self.string = self.string[:-1]
 
         self.locale: list[int]  = [0, 0]
-        self.marked: list[int]  = [len(self.text), -1]
+        self.marked: list[int]  = [len(self.string), -1]
 
     def __repr__(self) -> str:
         return f'{type(self)} {self.filename} {self.lineno}'
 
     def finished(self) -> bool:
-        return self.locale[1] >= len(self.text)
+        return self.locale[1] >= len(self.string)
 
     def get_marks(self) -> str:
         marks: str = '  '
 
-        for i in range(len(self.text) + 1):
+        for i in range(len(self.string) + 1):
             between = self.marked[0] <= i < self.marked[1]
             marks += '^' if between or self.marked[0] == i else ' '
 
@@ -42,7 +42,7 @@ class Line:
         return locale, taken
 
     def next(self) -> str:
-        return 'EOF' if self.finished() else self.text[self.locale[1]]
+        return 'EOF' if self.finished() else self.string[self.locale[1]]
 
     def take(self) -> str:
         symbol: str = self.next()
@@ -50,4 +50,4 @@ class Line:
         return symbol
 
     def taken(self) -> str:
-        return self.text[self.locale[0]:self.locale[1]]
+        return self.string[self.locale[0]:self.locale[1]]

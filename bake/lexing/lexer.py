@@ -1,7 +1,7 @@
 # c 2025-01-02
 # m 2025-01-04
 
-from .keywords import KEYWORDS
+from .keywords import *
 from .line import Line
 from .token import Token
 from util.error import LanguageError
@@ -28,8 +28,22 @@ class Lexer:
             self.line.take()
             self.line.ignore()
 
+    def make_identifier(self) -> Token:
+        while self.line.next().lower() in IDENTIFIER_SYMBOLS:
+            self.line.take()
+
+        identifier: Token = self.new_token('Identifier')
+        if identifier.locale[0] < identifier.locale[1]:
+            return identifier
+
+        raise LexerError(
+            identifier,
+            f'error lexing identifier\n  {self.line.string}',
+            self.line.locale[0]
+        )
+
     def make_number(self) -> Token:
-        while self.line.next() in "0123456789.de'":
+        while self.line.next() in NUMBER_SYMBOLS:
             self.line.take()
 
         taken: str = self.line.taken()
@@ -42,7 +56,7 @@ class Lexer:
 
         raise LexerError(
             self.new_token('Number'),
-            f"numbers can't have more than one of each of these symbols: . d e\n  {self.line.text}",
+            f"numbers can't have more than one of each of these symbols: . d e\n  {self.line.string}",
             self.line.locale[0]
         )
 
@@ -53,7 +67,8 @@ class Lexer:
         if op == '/' and next == '/':
             while self.line.next() != 'EOF':
                 self.line.take()
-            return self.new_token('Comment')
+            # return self.new_token('Comment')
+            return
 
         if any((
             op == '*' and next == '*',
@@ -95,32 +110,32 @@ class Lexer:
 
         raise LexerError(
             self.new_token('String'),
-            f'dangling string\n  {self.line.text}',
+            f'dangling string\n  {self.line.string}',
             self.line.locale[0]
         )
 
     def make_token(self) -> Token:
         next: str = self.line.next()
 
-        if next in '0123456789':
+        if next in IDENTIFIER_START_SYMBOLS:
+            return self.make_identifier()
+
+        if next in NUMBER_START_SYMBOLS:
             return self.make_number()
 
-        if next in '!%^&*-+~|:./?_':
+        if next in OPERATOR_SYMBOLS:
             return self.make_operator()  # also comments
 
-        if next in r'<>[]{}();,=':
+        if next in PUNCTUATOR_SYMBOLS:
             return self.make_punctuator()
 
         if next == '"':
             return self.make_string()
 
-        if next.lower() in 'abcdefghijklmnopqrstuvwxyz':
-            return self.make_word()
-
         self.line.take()
         raise LexerError(
             self.new_token('?'),
-            f'unrecognized symbol\n  {self.line.text}',
+            f'unrecognized symbol\n  {self.line.string}',
             self.line.locale[0]
         )
 
@@ -133,23 +148,11 @@ class Lexer:
             if self.line.finished():
                 break
 
-            tokens.append(self.make_token())
+            token: Token | None = self.make_token()
+            if token is not None:
+                tokens.append(token)
 
         return tokens
-
-    def make_word(self) -> Token:
-        while self.line.next().lower() in 'abcdefghijklmnopqrstuvqxyz0123456789_':
-            self.line.take()
-
-        word: Token = self.new_token('Word')
-        if word.locale[0] < word.locale[1]:
-            return word
-
-        raise LexerError(
-            word,
-            f'error lexing word\n  {self.line.text}',
-            self.line.locale[0]
-        )
 
     def new_token(self, kind: str) -> Token:
         return Token(self.line, kind)
