@@ -17,11 +17,11 @@ IDENTIFIER_SYMBOLS:       str = NUMBER_START_SYMBOLS + IDENTIFIER_START_SYMBOLS
 OPERATOR_SYMBOLS:         str = '%*-+=/'
 PUNCTUATOR_SYMBOLS:       str = r'{}[]();,'
 
-PRIMARY_KEYWORDS:     tuple[str] = 'cast', 'error', 'false', 'handle', 'is', 'null', 'return', 'true', 'with'
+PRIMARY_KEYWORDS:     tuple[str] = 'cast', 'error', 'false', 'handle', 'in', 'is', 'null', 'return', 'true', 'with'
 PRIMITIVE_KEYWORDS:   tuple[str] = 'base', 'bool', 'dec', 'flt', 'int', 'str', 'void'
 CONTAINER_KEYWORDS:   tuple[str] = 'arr', 'dict'
 TYPE_KEYWORDS:        tuple[str] = PRIMITIVE_KEYWORDS + CONTAINER_KEYWORDS
-FUNCTION_KEYWORDS:    tuple[str] = 'assert', 'input', 'print', 'super'
+FUNCTION_KEYWORDS:    tuple[str] = 'assert', 'input', 'open', 'print', 'super'
 DEFINABLE_KEYWORDS:   tuple[str] = 'class', 'enum', 'namespace', 'struct'
 MODIFIER_KEYWORDS:    tuple[str] = 'const', 'final', 'fixed', 'override', 'static'
 LOGIC_KEYWORDS:       tuple[str] = 'and', 'nand', 'nor', 'not', 'nox', 'or', 'xor'

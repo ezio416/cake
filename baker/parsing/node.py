@@ -3,6 +3,7 @@
 
 from lexing.lexing import LexerError
 from lexing.token import Token
+from reading.line import Line
 
 
 class ParserError(LexerError):
@@ -379,6 +380,13 @@ class Node(NodeMaker):
     def __repr__(self) -> str:
         # return f"{self.kind[:3].upper()}'{self.tokens[1].string}'"
         return f"{type(self).__name__} '{self.tokens[1].string}'"
+
+    @property
+    def line(self) -> Line:
+        return self.tokens[0].line
+
+    def mark(self) -> None:
+        pass
 
 
 class Class(Node):

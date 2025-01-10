@@ -10,10 +10,9 @@ from parsing.node import Node
 from parsing.parsing import Parser
 from reading.line import Line
 from reading.reading import Reader
-from transpiling.block import Block
 from transpiling.transpiling import Transpiler
 from util.error import LanguageError
-from writing.writing import LexedWriter
+from writing.writing import LexedWriter, Writer
 
 
 def main() -> None:
