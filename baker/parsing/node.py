@@ -405,14 +405,23 @@ class Enum(Node):
         super().__init__('Enum', locale)
 
     def build(self) -> None:  # just validation
-        for _ in range(3):  # "enum", identifier, "{"
+        for _ in range(2):  # "enum", identifier, "{"
             self.skip()
+
+        names: set = set()
 
         next: Token | None = None
         while not (next := self.next()).has('}'):
             if not len(self.taken()):
                 self.take()
+
             else:
+                if next.of('Identifier'):
+                    if next.string in names:
+                        raise ParserError(next, 'duplicate key')
+                    names.add(next.string)
+                    print(next.string)
+
                 match self.taken()[-1].kind[0]:  # previous token
                     case 'I':  # identifier
                         if not next.has(*',='):

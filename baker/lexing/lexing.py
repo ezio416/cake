@@ -5,6 +5,7 @@ import re
 
 from reading.line import Line
 from util.error import LanguageError
+from writing.writing import LexedWriter
 from .keywords import *
 from .token import Token
 
@@ -161,3 +162,6 @@ class Lexer:
             ret.append({ 'k': token.kind[0], 's': token.string if token.string != 'EOF' else '' })
 
         return ret
+
+    def write(self, dir: str) -> None:
+        LexedWriter(self.to_dict(), dir)

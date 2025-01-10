@@ -17,13 +17,18 @@ from writing.writing import LexedWriter, Writer
 
 def main() -> None:
     example_dir: str = f'{os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace('\\', '/')}/example'
+
     reader = Reader(example_dir)
+    # reader.write(f'{example_dir}/output')
 
     lexer = Lexer(reader.lines)
-    lexedWriter = LexedWriter(lexer.to_dict(), f'{example_dir}/output')
-    lexedWriter.write()
+    lexer.write(f'{example_dir}/output')
 
     parser = Parser(lexer.tokens)
+    # parser.write(f'{example_dir}/output')
+
+    transpiler = Transpiler(parser)
+    transpiler.write(f'{example_dir}/output', reader.proj)
 
     pass
 

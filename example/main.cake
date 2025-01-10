@@ -11,8 +11,8 @@ void main(int argc, str argv) {//hola
 namespace MyNamespace {
     int4 num = 2*31 - 1;
 
-    bool IsOkay(int4 n) {
-        print(tostring(n));
+    bool is_okay(int4 n) {
+        print(to_string(n));
         return true;
     }
 }
