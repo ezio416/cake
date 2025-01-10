@@ -37,32 +37,14 @@ class PrimaryExpression(Node):
 
         return PrimaryExpression(left, expression, right)
 
-    def interpret(self):
-        value = self.expression.interpret()
-
-        match self.left.string:
-            case '<', '[', '{', '(':
-                return value
-            case '|':
-                return abs(value)
-            case '^':
-                return ceil(value)
-            case '_':
-                return floor(value)
-
 
 class Number(PrimaryNode):
     @classmethod
     def construct(cls, parser):
         return Number(parser.expecting_of('Number'))
 
-    def interpret(self):
-        string: str = self.token.string
 
-        if 'd' in string:
-            raise ValueError('decimal floats are not yet supported:', string)
-        if '.' in string:
-            return float(string)
-        if 'e' in string:
-            return int(float(string))
-        return int(string)
+class Identifier(PrimaryNode):
+    @classmethod
+    def construct(cls, parser):
+        return Identifier(parser.expecting_of('Identifier'))

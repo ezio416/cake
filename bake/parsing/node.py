@@ -39,9 +39,6 @@ class Node(ABC):
     def construct(cls, parser):
         pass
 
-    @abstractmethod
-    def interpret(self):
-        pass
 
 class PrimaryNode(Node, ABC):
     def __init__(self, token):
@@ -52,6 +49,7 @@ class PrimaryNode(Node, ABC):
 
     def tree_repr(self, prefix = '    '):
         return f'{type(self).__name__} ── {self.token}'
+
 
 class BinaryNode(Node, ABC):
     def __init__(self, left, op, right):
