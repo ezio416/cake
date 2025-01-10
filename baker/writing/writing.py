@@ -28,17 +28,18 @@ class Writer:
         self.blocks: list[Block] = blocks
         self.dir:    str         = output_dir
         self.proj:   dict        = proj
+        name:        str         = proj['name']
 
         now = dt.now(tz.utc)
 
         header: list[str] = [
             '// baker - the cake compiler (v0.1.0 copyright 2025 Ezio416)\n',
-            f'// generated at {now.year}-{str(now.month).zfill(2)}-{str(now.day).zfill(2)} ',
+            f'// generated at {now.year}-{str(now.month).zfill(2)}-{str(now.day).zfill(2)} '
             f'{str(now.hour).zfill(2)}:{str(now.minute).zfill(2)}:{str(now.second).zfill(2)} UTC\n',
             '// this should be valid C code (C23) for which you may use in your compiler of choice\n',
-            '// if not, please report it (with your cake code) at https://github.com/ezio416/cake/issues\n'
+            '// if not, please report it (with your cake code) at https://github.com/ezio416/cake/issues\n',
             f'{'/' * 91}\n',
-            f'// project: {proj['name']}\n'
+            f'// project: {name}\n'
         ]
         if 'author' in proj:
             header.append(f'// author:  {proj['author']}\n')
@@ -46,7 +47,7 @@ class Writer:
             header.append(f'// version: {proj['version']}\n')
         header.append('\n')
 
-        with open(f'{self.dir}/{proj['name']}.cake.c', 'w', newline='\n') as f:
+        with open(f'{self.dir}/{name}.cake.c', 'w', newline='\n') as f:
             f.writelines(header)
 
             extra: list[str] = [
@@ -54,7 +55,7 @@ class Writer:
                 '#include <stdint.h>\n',
                 '#include <stdio.h>\n',
                 '#include <stdlib.h>\n',
-                f'#include "{proj['name']}.cake.h"\n\n',
+                f'#include "{name}.cake.h"\n\n',
                 'typedef bool         cake_bool;\n',
                 'typedef int_fast8_t  cake_int1;  // -128 - 127\n',
                 'typedef int_fast16_t cake_int2;  // -32768 - 32767\n',
@@ -67,9 +68,23 @@ class Writer:
                 if block.c:
                     f.write(block.c + '\n')
 
-        with open(f'{self.dir}/{proj['name']}.cake.h', 'w', newline='\n') as f:
+        with open(f'{self.dir}/{name}.cake.h', 'w', newline='\n') as f:
             f.writelines(header)
 
             for block in self.blocks:
                 if block.h:
                     f.write(block.h + '\n')
+
+        with open(f'{self.dir}/make.cmd', 'w', newline='\n') as f:
+            f.write('@echo off\n')
+            for i, line in enumerate(header):
+                header[i] = 'rem' + line
+            f.writelines(header)
+
+            script: list[str] = [
+                'rem// this batch script is meant for use on Windows\n',
+                'rem// to get GCC, you can use MSYS2: https://www.msys2.org\n\n',
+                f'gcc {name}.cake.c -o {name}.cake.o -std=gnu23 -c\n',
+                f'gcc -o {name} {name}.cake.o\n'
+            ]
+            f.writelines(script)

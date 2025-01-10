@@ -1,5 +1,5 @@
 # c 2025-01-07
-# m 2025-01-09
+# m 2025-01-10
 
 from util.error import LanguageError
 
@@ -39,4 +39,4 @@ class Block:
                 case _:
                     raise TranspilerError(token, 'unexpected token')
 
-        self.c = f'{self.c.rstrip(',\n')}\n}}'
+        self.c = f'{self.c.rstrip(',\n')}\n}};'
