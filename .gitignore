@@ -1,5 +1,6 @@
 # Extensions
-
+*.exe
+*.o
 
 # Files
 

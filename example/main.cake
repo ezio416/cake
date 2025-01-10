@@ -1,38 +1,49 @@
 // c 2025-01-02
-// m 2025-01-04
+// m 2025-01-09
 
-#directive
-void main() {//hola
+#define foo bar
+
+void main(int argc, str argv) {//hola
     // a comment
-    std::print("hello world");  // lmao
+    print("hello world");  // lmao
 }//adios
 
 namespace MyNamespace {
-    int4 num = 2**31 - 1;
+    int4 num = 2*31 - 1;
 
     bool IsOkay(int4 n) {
-        std::print(std::tostr(n));
+        print(tostring(n));
         return true;
     }
 }
+
+struct Struct1 {
+    bool[2] okay;
+    // arr<bool>7 okay2;
+}
+
+Struct1 make() {}
 
 class ClassA {
     ClassA()   {}
     void Try() {}
 }
 
-class ClassB : ClassA {
-    ClassB() {
-        super();
-    }
+enum AhhhEnumeration {
+    henlo = 1,
+    wrodl = 2,
+    thing,
+    stuff,
 }
 
-struct Struct1 {
-    bool okay;
-}
+// class ClassB : ClassA {
+//     ClassB() {
+//         super();
+//     }
+// }
 
-class ClassC : ClassB, Struct1 {
-    override void Try() {
-        std::print(okay ? "hello" : "world");
-    }
-}
+// class ClassC : ClassB, Struct1 {
+//     override void Try() {
+//         print(okay ? "hello" : "world");
+//     }
+// }

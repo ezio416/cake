@@ -179,21 +179,7 @@ void main() {
 
 ## Reserved Keywords
 cake has a number of reserved keywords that serve a special purpose so they cannot be used for variables, functions, etc.\
-`and`, `arr`, `base`, `bool`, `cast`, `class`, `const`, `dec`, `decN` (any digits for `N`), `dict`, `enum`, `final`, `float`, `int`, `intN` (any digits for `N`), `namespace`, `nand`, `nor`, `not`, `nox`, `null`, `or`, `override`, `ptr`, `return`, `static`, `std`, `str`, `strN` (any digits for `N`), `struct`, `super`, `void`, `with`, `xor`
-
-## Standard Library
-Access cake's standard library with the `std::` namespace. The purpose of this is to cut down on the number of reserved keywords cake uses.
-```cpp
-void std::assert(bool b);   // raises an error when false
-void std::error(str s);     // raises an error
-void std::handle(Error e);  // catches an error gracefully
-void std::print(str s);     // prints to the console
-void std::tostr(base b);    // converts a type to a string if possible
-
-struct std::Error {
-    ;
-}
-```
+`and`, `arr`, `base`, `bool`, `cast`, `class`, `const`, `dec`, `decN` (any digits for `N`), `dict`, `enum`, `final`, `float`, `int`, `intN` (any digits for `N`), `namespace`, `nand`, `nor`, `not`, `nox`, `null`, `or`, `override`, `ptr`, `return`, `static`, `str`, `strN` (any digits for `N`), `struct`, `super`, `void`, `with`, `xor`
 
 ## Structs
 A struct lets you keep variables of different types together. Structs may be inherited by classes or other structs.
