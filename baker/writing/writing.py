@@ -1,5 +1,5 @@
 # c 2025-01-07
-# m 2025-01-09
+# m 2025-01-10
 
 from datetime import datetime as dt, timezone as tz
 import json
@@ -84,7 +84,7 @@ class Writer:
             script: list[str] = [
                 'rem// this batch script is meant for use on Windows\n',
                 'rem// to get GCC, you can use MSYS2: https://www.msys2.org\n\n',
-                f'gcc {name}.cake.c -o {name}.cake.o -std=gnu23 -c\n',
-                f'gcc -o {name} {name}.cake.o\n'
+                f'gcc {name}.cake.c -o {name}.cake.o -c -std=gnu23\n',
+                f'gcc {name}.cake.o -o {name}\n'
             ]
             f.writelines(script)
