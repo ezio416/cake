@@ -36,7 +36,7 @@ class Writer:
             '// baker - the cake compiler (v0.1.0 copyright 2025 Ezio416)\n',
             f'// generated at {now.year}-{str(now.month).zfill(2)}-{str(now.day).zfill(2)} '
             f'{str(now.hour).zfill(2)}:{str(now.minute).zfill(2)}:{str(now.second).zfill(2)} UTC\n',
-            '// this should be valid C code (C23) for which you may use in your compiler of choice\n',
+            '// this should be valid C23 code for which you may use in your compiler of choice\n',
             '// if not, please report it (with your cake code) at https://github.com/ezio416/cake/issues\n',
             f'{'/' * 91}\n',
             f'// project: {name}\n'
@@ -52,28 +52,35 @@ class Writer:
 
             extra: list[str] = [
                 '#include <math.h>\n',
-                '#include <stdint.h>\n',
                 '#include <stdio.h>\n',
                 '#include <stdlib.h>\n',
                 f'#include "{name}.cake.h"\n\n',
-                'typedef bool         cake_bool;\n',
-                'typedef int_fast8_t  cake_int1;  // -128 - 127\n',
-                'typedef int_fast16_t cake_int2;  // -32768 - 32767\n',
-                'typedef int_fast32_t cake_int4;  // -2.1b - 2.1b\n',
-                'typedef int_fast64_t cake_int8;  // -9e18 - 9e18\n\n'
             ]
             f.writelines(extra)
 
             for block in self.blocks:
                 if block.c:
-                    f.write(block.c + '\n')
+                    f.write(block.c + '\n\n')
+
+            # temporary until functions are figured out
+            f.write('int main(int argc, char *argv[]) {\n    return 0;\n}\n')
 
         with open(f'{self.dir}/{name}.cake.h', 'w', newline='\n') as f:
             f.writelines(header)
 
+            extra: list[str] = [
+                '#include <stdint.h>\n\n',
+                'typedef bool    cake_bool;\n',
+                'typedef int8_t  cake_int1;  // -128 - 127\n',
+                'typedef int16_t cake_int2;  // -32768 - 32767\n',
+                'typedef int32_t cake_int4;  // -2.1b - 2.1b\n',
+                'typedef int64_t cake_int8;  // -9e18 - 9e18\n\n'
+            ]
+            f.writelines(extra)
+
             for block in self.blocks:
                 if block.h:
-                    f.write(block.h + '\n')
+                    f.write(block.h + '\n\n')
 
         with open(f'{self.dir}/make.cmd', 'w', newline='\n') as f:
             f.write('@echo off\n')

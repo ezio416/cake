@@ -21,22 +21,22 @@ class Block:
             case _:
                 pass
 
-    def t_enum(self) -> None:
-        self.c += f'enum {self.node.tokens[1].string} {{\n'
+    def t_enum(self) -> None:  # header only
+        self.h += f'typedef enum {{\n'
 
         for token in self.node.tokens[3:]:
             match token.kind[0]:
                 case 'I':
-                    self.c += '    ' + token.string
+                    self.h += '    ' + token.string
                 case 'N':
-                    self.c += token.string
+                    self.h += token.string
                 case 'O':
-                    self.c += ' ' + token.string + ' '
+                    self.h += ' ' + token.string + ' '
                 case 'P':
                     if token.has('}'):
                         break
-                    self.c += token.string + '\n'
+                    self.h += token.string + '\n'
                 case _:
                     raise TranspilerError(token, 'unexpected token')
 
-        self.c = f'{self.c.rstrip(',\n')}\n}};'
+        self.h = f'{self.h.rstrip(',\n')}\n}} {self.node.tokens[1].string};'

@@ -1,5 +1,5 @@
 # c 2025-01-07
-# m 2025-01-09
+# m 2025-01-10
 
 from lexing.lexing import LexerError
 from lexing.token import Token
@@ -420,7 +420,7 @@ class Enum(Node):
                     if next.string in names:
                         raise ParserError(next, 'duplicate key')
                     names.add(next.string)
-                    print(next.string)
+                    # print(next.string)
 
                 match self.taken()[-1].kind[0]:  # previous token
                     case 'I':  # identifier

@@ -1,3 +1,6 @@
 {
+    "files.associations": {
+        "*.cake": "cpp"
+    },
     "files.trimTrailingWhitespace": true
 }
