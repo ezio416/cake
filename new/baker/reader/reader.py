@@ -24,7 +24,7 @@ class Config:
 
     def __init__(self, path: str):
         if not os.path.isfile(path):
-            raise ReaderError(f'missing config file')
+            raise ReaderError('missing config file')
 
         with open(path) as f:
             data: dict = json.load(f)
