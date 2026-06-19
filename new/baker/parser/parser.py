@@ -1,7 +1,10 @@
 import lexer
 
 
-__all__ = []
+__all__ = [
+    'ParserError'
+]
 
 
-...
+class ParserError(Exception):
+    pass

@@ -34,20 +34,37 @@ class Config:
         self.version = data['version']
 
 
+@dataclass
+class Line:
+    file:   SourceFile
+    lineno: int
+    pos:    int
+    text:   str
+
+    def __init__(self, file: SourceFile, lineno: int, text: str):
+        self.file   = file
+        self.lineno = lineno
+        self.pos    = 0
+        self.text   = text
+
+
 class ReaderError(Exception):
     pass
 
 
 @dataclass
 class SourceFile:
-    lines: list[str]
+    lines: list[Line]
     path:  str
 
     def __init__(self, path: str):
         self.path = path.replace('\\', '/')
 
+        self.lines = []
+
         with open(self.path) as f:
-            self.lines = f.readlines()
+            for i, line in enumerate(f):
+                self.lines.append(Line(self, i + 1, line))
 
 
 def read_config(folder: str) -> Config:
