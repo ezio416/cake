@@ -51,5 +51,6 @@ def tokenize(source: list[reader.SourceFile]) -> list[Token]:
             #         )
 
             ...
+            pass
 
     return ret
