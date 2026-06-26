@@ -9,6 +9,8 @@ def main() -> None:
     config = reader.read_config(test_folder)
     source = reader.read_source(test_folder)
 
+    tokens = lexer.tokenize(source)
+
     pass
 
 

@@ -5,6 +5,7 @@ import os
 
 __all__ = [
     'Config',
+    'Line',
     'ReaderError',
     'SourceFile',
     'read_config',
@@ -38,14 +39,38 @@ class Config:
 class Line:
     file:   SourceFile
     lineno: int
-    pos:    int
+    locale: list[int]
     text:   str
 
     def __init__(self, file: SourceFile, lineno: int, text: str):
         self.file   = file
         self.lineno = lineno
-        self.pos    = 0
+        self.locale = [0, 0]
         self.text   = text
+
+    def finished(self) -> bool:
+        return self.locale[1] >= len(self.text)
+
+    def ignore(self) -> None:
+        self.locale[0] = self.locale[1]
+
+    def new_locale(self) -> tuple[list[int], str]:
+        locale = self.locale.copy()
+        taken = self.taken()
+        self.ignore()
+        return locale, taken
+
+    def next(self) -> str:
+        return 'EOF' if self.finished() else self.text[self.locale[1]]
+
+    def take(self) -> str:
+        symbol = self.next()
+        if self.finished():
+            self.locale[1] += 1
+        return symbol
+
+    def taken(self) -> str:
+        return self.text[self.locale[0]:self.locale[1]]
 
 
 class ReaderError(Exception):
