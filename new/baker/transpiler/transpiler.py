@@ -6,5 +6,5 @@ __all__ = [
 ]
 
 
-class TranspilerError(Exception):
+class TranspilerError(RuntimeError):
     pass

@@ -11,5 +11,5 @@ __all__ = [
 OUTPUT_FILE_NAME = 'main.cake.c'
 
 
-class WriterError(Exception):
+class WriterError(RuntimeError):
     pass

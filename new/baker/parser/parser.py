@@ -6,5 +6,5 @@ __all__ = [
 ]
 
 
-class ParserError(Exception):
+class ParserError(RuntimeError):
     pass

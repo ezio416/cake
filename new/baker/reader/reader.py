@@ -38,14 +38,14 @@ class Config:
 @dataclass
 class Line:
     file:   SourceFile
-    lineno: int
     locale: list[int]
+    num:    int
     text:   str
 
-    def __init__(self, file: SourceFile, lineno: int, text: str):
+    def __init__(self, file: SourceFile, num: int, text: str):
         self.file   = file
-        self.lineno = lineno
         self.locale = [0, 0]
+        self.num    = num
         self.text   = text
 
     def finished(self) -> bool:
@@ -53,6 +53,11 @@ class Line:
 
     def ignore(self) -> None:
         self.locale[0] = self.locale[1]
+
+    def ignore_spaces(self) -> None:
+        while self.next().isspace():
+            self.take()
+            self.ignore()
 
     def new_locale(self) -> tuple[list[int], str]:
         locale = self.locale.copy()
@@ -65,7 +70,7 @@ class Line:
 
     def take(self) -> str:
         symbol = self.next()
-        if self.finished():
+        if not self.finished():
             self.locale[1] += 1
         return symbol
 
@@ -73,7 +78,7 @@ class Line:
         return self.text[self.locale[0]:self.locale[1]]
 
 
-class ReaderError(Exception):
+class ReaderError(RuntimeError):
     pass
 
 
