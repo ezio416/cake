@@ -59,6 +59,9 @@ class Line:
             self.take()
             self.ignore()
 
+    def loc(self) -> str:
+        return f'({self.file.path}, line {self.num}, column {self.locale[0] + 1})'
+
     def new_locale(self) -> tuple[list[int], str]:
         locale = self.locale.copy()
         taken = self.taken()
