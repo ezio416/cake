@@ -40,16 +40,16 @@ class Line:
     file:   SourceFile
     locale: list[int]
     num:    int
-    text:   str
+    string: str
 
-    def __init__(self, file: SourceFile, num: int, text: str):
+    def __init__(self, file: SourceFile, num: int, string: str):
         self.file   = file
         self.locale = [0, 0]
         self.num    = num
-        self.text   = text
+        self.string = string
 
     def finished(self) -> bool:
-        return self.locale[1] >= len(self.text)
+        return self.locale[1] >= len(self.string)
 
     def ignore(self) -> None:
         self.locale[0] = self.locale[1]
@@ -69,7 +69,7 @@ class Line:
         return locale, taken
 
     def next(self) -> str:
-        return 'EOF' if self.finished() else self.text[self.locale[1]]
+        return 'EOF' if self.finished() else self.string[self.locale[1]]
 
     def take(self) -> str:
         symbol = self.next()
@@ -78,7 +78,7 @@ class Line:
         return symbol
 
     def taken(self) -> str:
-        return self.text[self.locale[0]:self.locale[1]]
+        return self.string[self.locale[0]:self.locale[1]]
 
 
 class ReaderError(RuntimeError):

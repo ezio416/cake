@@ -33,17 +33,17 @@ class Token:
     kind:   str
     line:   reader.Line
     locale: list[int]
-    text:   str
+    string: str
 
     def __init__(self, kind: str, line: reader.Line):
         self.kind = kind
         self.line = line
-        self.locale, self.text = line.new_locale()
+        self.locale, self.string = line.new_locale()
 
-        self.text = self.text or 'EOF'
+        self.string = self.string or 'EOF'
 
     def __repr__(self):
-        return f"{self.kind[0]}'{self.text}'"
+        return f"{self.kind[0]}'{self.string}'"
 
 
 def tokenize(source: list[reader.SourceFile]) -> list[Token]:
