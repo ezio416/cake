@@ -1,7 +1,7 @@
 from datetime import datetime as dt, timezone as tz
 
 
-VERSION = '0.3.0'
+VERSION = '0.4.0'
 
 
 class LanguageError(RuntimeError):
