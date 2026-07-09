@@ -110,8 +110,8 @@ class Reader:
             raise ReaderError('no output folder given')
 
         with open(os.path.join(self.output_dir, '1_reader.cakedebug'), 'w', newline='\n') as f:
-            f.write(debug_header(f'step 1: reader'))
-            f.write(f'config:\n')
+            f.write(debug_header('step 1: reader'))
+            f.write('config:\n')
             f.write(f'\tpath:    "{self.config.path}"\n')
             f.write(f'\tauthor:  {self.config.author}\n')
             f.write(f'\tname:    {self.config.name}\n')

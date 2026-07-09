@@ -133,7 +133,7 @@ class Lexer:
             raise LexerError('no output folder given')
 
         with open(os.path.join(self.output_dir, '2_lexer.cakedebug'), 'w', newline='\n') as f:
-            f.write(debug_header(f'step 2: lexer'))
+            f.write(debug_header('step 2: lexer'))
             f.write('tokens:\n')
             for file in self.files:
                 f.write(f'\t"{file.path}":\n')

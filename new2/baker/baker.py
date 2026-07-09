@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 
+from parser.parser import Parser
 from .lexer import Lexer
 from .reader import Reader
 from .util import debug_header
@@ -11,6 +12,7 @@ class Baker:
     dir:        str
     lexer:      Lexer
     output_dir: str
+    parser:     Parser
     reader:     Reader
 
     def __init__(self, dir: str):
@@ -38,5 +40,10 @@ class Baker:
         self.lexer.lex()
         if debug:
             self.lexer.write_debug()
+
+        self.parser = Parser(self.lexer.tokens, self.output_dir if debug else '')
+        self.parser.parse()
+        if debug:
+            self.parser.write_debug()
 
         ...
