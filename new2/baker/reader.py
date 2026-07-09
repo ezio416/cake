@@ -112,13 +112,13 @@ class Reader:
         with open(os.path.join(self.output_dir, '1_reader.cakedebug'), 'w', newline='\n') as f:
             f.write(debug_header(f'step 1: reader'))
             f.write(f'config:\n')
-            f.write(f'    path:    "{self.config.path}"\n')
-            f.write(f'    author:  {self.config.author}\n')
-            f.write(f'    name:    {self.config.name}\n')
-            f.write(f'    version: {self.config.version}\n')
+            f.write(f'\tpath:    "{self.config.path}"\n')
+            f.write(f'\tauthor:  {self.config.author}\n')
+            f.write(f'\tname:    {self.config.name}\n')
+            f.write(f'\tversion: {self.config.version}\n')
             f.write('source files:\n')
             for file in self.files:
-                f.write(f'    "{file.path}" ({len(file.lines)} line{'s' if len(file.lines) != 1 else ''})\n')
+                f.write(f'\t"{file.path}" ({len(file.lines)} line{'s' if len(file.lines) != 1 else ''})\n')
 
 
 class ReaderError(LanguageError):

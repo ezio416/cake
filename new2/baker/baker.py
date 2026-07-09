@@ -26,7 +26,7 @@ class Baker:
 
             with open(os.path.join(self.output_dir, '0_baker.cakedebug'), 'w', newline='\n') as f:
                 f.write(debug_header(f'step 0: baker'))
-                f.write(f'input dir:\n    "{self.dir}"\n')
+                f.write(f'input dir:\n\t"{self.dir}"\n')
 
         self.reader = Reader(self.dir, self.output_dir if debug else '')
         self.reader.read_config()

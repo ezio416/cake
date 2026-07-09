@@ -136,9 +136,9 @@ class Lexer:
             f.write(debug_header(f'step 2: lexer'))
             f.write('tokens:\n')
             for file in self.files:
-                f.write(f'    "{file.path}":\n')
+                f.write(f'\t"{file.path}":\n')
                 for token in file.tokens:
-                    f.write(f'        {token}\n')
+                    f.write(f'\t\t{token}\n')
 
 
 class LexerError(LanguageError):
@@ -162,13 +162,13 @@ class Token:
     def __repr__(self) -> str:
         return f"{self.kind[0]}'{self.string}'"
 
-    def has(self, *strings) -> bool:
+    def has(self, *strings: str) -> bool:
         return self.string in strings
 
     def loc(self) -> str:
         return f'("{self.line.file.path}", line {self.line.num}, column {self.locale[0] + 1})'
 
-    def of(self, *kinds) -> bool:
+    def of(self, *kinds: str) -> bool:
         return self.kind in kinds
 
     def tree_repr(self, _) -> str:
