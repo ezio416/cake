@@ -9,15 +9,14 @@ DIGIT_SYMBOLS      = '0123456789'
 IDENTIFIER_SYMBOLS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
 LOGIC_KEYWORDS     = 'and', 'nand', 'nor', 'not', 'nox', 'or', 'xor'
 NUMBER_SYMBOLS     = "'-.0123456789ABCDEFabcdefox"
-OPERATOR_SYMBOLS   = '!$%&*+-./:<=>?^|~'
-PUNCTUATOR_SYMBOLS = r'"(),;[]{}'
-SPECIAL_KEYWORDS   = 'abstract', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch', 'class', 'continue',\
-    'default', 'do', 'else', 'enum', 'escape', 'extern', 'false', 'final', 'finally', 'for', 'from', 'funcdef',\
-    'global', 'if', 'import', 'in', 'interface', 'is', 'mixin', 'mut', 'namespace', 'nonlocal', 'of', 'override',\
-    'private', 'protected', 'return', 'static', 'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'typedef',\
-    'union', 'while', 'with', 'yield'
+OPERATOR_SYMBOLS   = '!$%&*+-./:<=>?^|'
+PUNCTUATOR_SYMBOLS = r'"\'(),;[]{}'
+SPECIAL_KEYWORDS   = 'abstract', 'actually', 'alias', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch',\
+    'class', 'continue', 'default', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from', 'if',\
+    'import', 'in', 'interface', 'is', 'mut', 'namespace', 'override', 'private', 'protected', 'return', 'static',\
+    'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
 TYPE_KEYWORDS      = 'auto', 'bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'void'
-UNUSED_SYMBOLS     = '#@`'
+UNUSED_SYMBOLS     = '#@`~'
 
 
 @dataclass
@@ -53,8 +52,6 @@ class Lexer:
                             if op == char and line.next() in char + '=':
                                 line.take()
                                 break
-                        if op == ':' and line.next() == ':':
-                            line.take()
                         self.tokens.append(Token('Operator', line))
                         file.tokens.append(self.tokens[-1])
 

@@ -1,0 +1,105 @@
+program = { alias | class | declaration | enum | function | interface | namespace | struct } ;
+
+alias = "alias" type id ";" ;
+class = [ inheritance_modifier ] "class" id [ inheritance ] "{" { member | method } "}" ;
+declaration = decl [ "=" expression ] ;
+enum = "enum" id "{" { id [ "=" num_int ] "," } [ id [ "=" num_int ] [ "," ] ] "}" ;
+function = ( type | "void" ) id function_params block ;
+interface = [ inheritance_modifier ] "interface" id [ inheritance ] "{" { method } "}" ;
+namespace = "namespace" id "{" [ program ] "}" ;
+struct = [ inheritance_modifier ] "struct" id [ inheritance ] "{" { member } "}" ;
+
+inheritance = ":" { type "," } type [ "," ] ;
+inheritance_modifier = "abstract" | "final" ;
+member = [ visibility_modifier ] declaration ";" ;
+method = [ visibility_modifier ] { method_inheritance } type [ "$" ] id function_params ( block | ";" ) ;
+method_inheritance = "final" | "override" ;
+visibility_modifier = "private" | "protected" ;
+
+function_params = "(" [ { decl "," } decl [ "," [ { decl "=" expression "," } decl "=" expression [ "," ] ] ] ] ")" ;
+function_args = "(" [ { [ id "=" ] expression "," } [ id "=" ] expression [ "," ] ] ")" ;
+function_call = accessor function_args ;
+
+accessor = id { "." [ "$" ] accessor | function_args | "[" expression "]" } ;
+id = ( [A-Za-z] | "_" ) { [0-9A-Za-z] | "_" } ;
+
+block = "{" { block | statement } "}" ;
+
+statement =
+	";"
+	| alias
+	| assignment ";"
+	| break ";"
+	| continue ";"
+	| declaration ";"
+	| do
+	| expression ";"
+	| for
+	| if
+	| return ";"
+	| switch
+	| throw ";"
+	| try
+	| while
+	| with
+	;
+
+expression =
+	accessor
+	| literal
+	| "(" assignment ")"
+	| "(" expression ")"
+	| prefix
+	| postfix
+	| expression ( "<" | "<=" | "==" | "!=" | ">=" | ">" ) expression
+	| expression ( "&" | "|" | "^" ) expression
+	| expression ( "&&" | "!&" | "!|" | "!^" | "||" | "^^" ) expression
+	| expression ( "and" | "nand" | "nor" | "nox" | "or" | "xor" ) expression
+	| expression ( "+" | "-" | "*" | "**" | "/" | "%" | "<<" | ">>" ) expression
+	| expression "is" [ "not" ] [ "actually" ] type
+	| ternary
+	;
+
+assignment =
+	prefix
+	| postfix
+	| accessor [ "+" | "-" | "*" | "**" | "/" | "%" | "&" | "|" | "^" | "<<" | ">>" ] "=" expression
+	;
+
+break = "break" [ num_uint ] ;
+continue = "continue" [ num_uint ] ;
+decl = [ "mut" ] type id ;
+do = "do" block [ "while" "(" expression ")" ";" ] ;
+for = "for" "(" decl "in" expression ")" block ;
+if = "if" "(" expression ")" block { "else" "if" "(" expression ")" block } [ "else" block ] ;
+postfix = accessor ( "++", "--" ) ;
+prefix = ( "!" | "++" | "-" | "--" | "not" ) expression ;
+return = "return" [ expression ] ;
+switch = "switch" "(" expression ")" "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
+ternary = expression "?" expression ":" expression ;
+throw = "throw" expression ;
+try = "try" block [ { "catch" type [ "as" id ] block } [ "catch" block ] [ "finally" block ] ] ;
+while = "while" "(" expression ")" block ;
+with = "with" expression "as" id block ;
+
+type = id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
+type_float = "f32" | "f64" ;
+type_int = ( "i" | "u" ) ( "8" | "16" | "32" | "64" ) ;
+
+literal = bool | char | number | string ;
+bool = "true" | "false" ;
+char = num_uint | "'" ? extended ASCII (Windows-1252) character ? "'" ;
+string = "\"" { ? UTF-8 character ? } "\"" ;
+
+number = num_sci | num_flt | num_hex | num_int | num_oct | num_bin ;
+num_sci = ( num_flt | num_int ) "e" num_int ;
+num_flt = num_int "." num_uint ;
+num_hex = "0x" { dig_hex { "'" } } dig_hex ;
+dig_hex = [0-9A-Fa-f] ;
+num_int = [ "-" ] num_uint ;
+num_uint = { dig_int { "'" } } dig_int ;
+dig_int = [0-9] ;
+num_oct = "0o" { dig_oct { "'" } } dig_oct ;
+dig_oct = [0-7] ;
+num_bin = "0b" { dig_bin { "'" } } dig_bin ;
+dig_bin = [0-1] ;
