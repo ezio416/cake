@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 import os
 
-from parser.parser import Parser
 from .lexer import Lexer
+from .parser.parser import Parser
 from .reader import Reader
 from .util import debug_header
 

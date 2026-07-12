@@ -2,10 +2,10 @@ import os
 import sys
 
 try:
-    from ..baker import Baker
+    from ..src import Baker
 except ImportError:
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-    from baker import Baker
+    from src import Baker
 
 
 def main() -> None:
