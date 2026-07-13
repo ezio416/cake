@@ -2,7 +2,7 @@ program = { alias | class | declaration | enum | function | interface | namespac
 
 alias = "alias" type id ";" ;
 class = [ inheritance_modifier ] "class" id [ inheritance ] "{" { member | method } "}" ;
-declaration = decl [ "=" expression ] ;
+declaration = decl [ "=" expression ] ";" ;
 enum = "enum" id "{" { id [ "=" num_int ] "," } [ id [ "=" num_int ] [ "," ] ] "}" ;
 function = ( type | "void" ) id function_params block ;
 interface = [ inheritance_modifier ] "interface" id [ inheritance ] "{" { method } "}" ;
@@ -11,7 +11,7 @@ struct = [ inheritance_modifier ] "struct" id [ inheritance ] "{" { member } "}"
 
 inheritance = ":" { type "," } type [ "," ] ;
 inheritance_modifier = "abstract" | "final" ;
-member = [ visibility_modifier ] declaration ";" ;
+member = [ visibility_modifier ] declaration ;
 method = [ visibility_modifier ] { method_inheritance } type [ "$" ] id function_params ( block | ";" ) ;
 method_inheritance = "final" | "override" ;
 visibility_modifier = "private" | "protected" ;
@@ -31,7 +31,7 @@ statement =
 	| assignment ";"
 	| break ";"
 	| continue ";"
-	| declaration ";"
+	| declaration
 	| do
 	| expression ";"
 	| for
@@ -57,6 +57,7 @@ expression =
 	| expression ( "and" | "nand" | "nor" | "nox" | "or" | "xor" ) expression
 	| expression ( "+" | "-" | "*" | "**" | "/" | "%" | "<<" | ">>" ) expression
 	| expression "is" [ "not" ] [ "actually" ] type
+	| expression [ "not" ] "in" expression
 	| ternary
 	;
 
@@ -82,7 +83,7 @@ try = "try" block [ { "catch" type [ "as" id ] block } [ "catch" block ] [ "fina
 while = "while" "(" expression ")" block ;
 with = "with" expression "as" id block ;
 
-type = id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
+type = type "<" type ">" | id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
 type_float = "f32" | "f64" ;
 type_int = ( "i" | "u" ) ( "8" | "16" | "32" | "64" ) ;
 
