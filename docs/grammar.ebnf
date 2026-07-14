@@ -1,96 +1,145 @@
-program = { alias | class | declaration | enum | function | interface | namespace | struct } ;
+program = { statement } ;
+block = "{" { block | statement } "}" ;
+statement = simple_stmt | compound_stmt ;
 
-alias = "alias" type id ";" ;
-class = [ inheritance_modifier ] "class" id [ inheritance ] "{" { member | method } "}" ;
-declaration = decl [ "=" expression ] ";" ;
-enum = "enum" id "{" { id [ "=" num_int ] "," } [ id [ "=" num_int ] [ "," ] ] "}" ;
-function = ( type | "void" ) id function_params block ;
-interface = [ inheritance_modifier ] "interface" id [ inheritance ] "{" { method } "}" ;
-namespace = "namespace" id "{" [ program ] "}" ;
-struct = [ inheritance_modifier ] "struct" id [ inheritance ] "{" { member } "}" ;
+# simple statements
 
+simple_stmt =
+	";"
+	| alias_stmt
+	| assign_stmt
+	| break_stmt
+	| continue_stmt
+	| decl_stmt
+	| del_stmt
+	| return_stmt
+	| throw_stmt
+	;
+
+alias_stmt = "alias" type id ";" ;
+assign_stmt = pre_or_post_fixed_accessor assign_op expression ";" ;
+break_stmt = "break" [ num_uint ] ";" ;
+continue_stmt = "continue" [ num_uint ] ";" ;
+decl_stmt = ( param_no_default | param_with_default ) ";" ;
+del_stmt = "del" id ";" ;
+return_stmt = "return" [ expression ] ";" ;
+throw_stmt = "throw" expression ";" ;
+
+pre_or_post_fixed_accessor = [ prefix_op ] accessor [ postfix_op ] ;
+prefix_op = postfix_op | "!" | "-" | "not" ;
+postfix_op = "++" | "--" ;
+assign_op = [ "+" | "-" | "*" | "**" | "/" | "%" | "&" | "|" | "^" | "<<" | ">>" ] "=" ;
+
+# compound statements
+
+compound_stmt =
+	class_def
+	| do_stmt
+	| enum_def
+	| for_stmt
+	| function_def
+	| if_stmt
+	| interface_def
+	| namespace_def
+	| struct_def
+	| switch_stmt
+	| try_stmt
+	| while_stmt
+	| with_stmt
+	;
+
+class_def = [ base_modifiers ] "class" id [ inheritance ] "{" { member_def | method_def } "}" ;
+base_modifiers = "abstract" | "final" ;
 inheritance = ":" { type "," } type [ "," ] ;
-inheritance_modifier = "abstract" | "final" ;
-member = [ visibility_modifier ] declaration ;
-method = [ visibility_modifier ] { method_inheritance } type [ "$" ] id function_params ( block | ";" ) ;
-method_inheritance = "final" | "override" ;
-visibility_modifier = "private" | "protected" ;
+member_def = member_modifiers decl_stmt ;
+method_def = member_modifiers function_type [ "$" ] id function_params ( block | ";" ) ;
+member_modifiers = "protected" | ( "private" | [ "final" ] ) [ "override" ] ;
 
-function_params = "(" [ { decl "," } decl [ "," [ { decl "=" expression "," } decl "=" expression [ "," ] ] ] ] ")" ;
-function_args = "(" [ { [ id "=" ] expression "," } [ id "=" ] expression [ "," ] ] ")" ;
+do_stmt = "do" block [ "while" paren_expr ";" ] ;
+
+enum_def = "enum" id "{" { enum_element "," } [ enum_element [ "," ] ] "}" ;
+enum_element = id [ "=" num_int ] ;
+
+for_stmt = "for" "(" id "in" expression ")" block ;
+
+function_def = function_type id function_params block ;
+function_type = type | "void" ;
+function_params = "(" [ params_no_default [ "," ] | [ params_no_default "," ] params_with_default [ "," ] ] ")" ;
+params_no_default = { param_no_default "," } param_no_default ;
+param_no_default = [ "mut" ] type id ;
+params_with_default = { param_with_default "," } param_with_default ;
+param_with_default = param_no_default "=" expression ;
 function_call = accessor function_args ;
+function_args = "(" [ { function_arg "," } function_arg [ "," ] ] ")" ;
+function_arg = [ id "=" ] expression ;
+
+if_stmt = "if" paren_expr block { "else" "if" paren_expr block } [ "else" block ] ;
+
+interface_def = [ base_modifiers ] "interface" id [ inheritance ] "{" { method_def } "}" ;
+
+namespace_def = "namespace" id "{" [ program ] "}" ;
+
+struct_def = [ base_modifiers ] "struct" id [ inheritance ] "{" { member_def } "}" ;
+
+switch_stmt = "switch" paren_expr "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
+
+try_stmt = "try" block [ { "catch" type [ "as" id ] block } [ "catch" block ] [ "finally" block ] ] ;
+
+while_stmt = "while" paren_expr block ;
+
+with_stmt = "with" paren_expr "as" id block ;
+
+# expressions
+
+expression =
+	"(" assign_stmt ")"
+	| pre_or_post_fixed_accessor
+	| cast_expr
+	| paren_expr
+	| ternary_expr
+	| literal
+	;
+
+cast_expr = ( "cast" "<" type ">" | "(" type ")" ) paren_expr ;
+paren_expr = "(" expression ")" ;
+ternary_expr = or_expr [ "?" or_expr ":" expression ] ;
+
+or_expr = xor_expr { ( "||" | "or" | "!|" | "nor" ) xor_expr } ;
+xor_expr = and_expr { ( "^^" | "xor" | "!^" | "xnor" ) and_expr } ;
+and_expr = not_expr { ( "&&" | "and" | "!&" | "nand" ) not_expr } ;
+not_expr = comp_expr | ( "!" | "not" ) not_expr ;
+comp_expr = bit_or_expr { eq_op | lt_op | gt_op | in_op | is_op } ;
+eq_op = ( "!" | "=" ) "=" bit_or_expr ;
+lt_op = "<" [ "=" ] bit_or_expr ;
+gt_op = ">" [ "=" ] bit_or_expr ;
+in_op = [ "not" ] "in" bit_or_expr ;
+is_op = "is" [ "not" ] [ "actually" ] [ "of" ] bit_or_expr ;
+bit_or_expr = [ bit_or_expr "|" ] bit_xor_expr ;
+bit_xor_expr = [ bit_xor_expr "^" ] bit_and_expr ;
+bit_and_expr = [ bit_and_expr "&" ] shift_expr ;
+shift_expr = [ shift_expr ( "<<" | ">>") ] add_expr ;
+add_expr = [ add_expr ( "+" | "-" ) | "-" ] mult_expr ;
+mult_expr = [ mult_expr ( "*" | "/" | "%" ) ] exp_expr ;
+exp_expr = expression [ "**" mult_expr ] ;
+
+# names
 
 accessor = id { "." [ "$" ] accessor | function_args | "[" expression "]" } ;
 id = ( [A-Za-z] | "_" ) { [0-9A-Za-z] | "_" } ;
 
-block = "{" { block | statement } "}" ;
-
-statement =
-	";"
-	| alias
-	| assignment ";"
-	| break ";"
-	| continue ";"
-	| declaration
-	| do
-	| expression ";"
-	| for
-	| if
-	| return ";"
-	| switch
-	| throw ";"
-	| try
-	| while
-	| with
-	;
-
-expression =
-	accessor
-	| literal
-	| "(" assignment ")"
-	| "(" expression ")"
-	| prefix
-	| postfix
-	| expression ( "<" | "<=" | "==" | "!=" | ">=" | ">" ) expression
-	| expression ( "&" | "|" | "^" ) expression
-	| expression ( "&&" | "!&" | "!|" | "!^" | "||" | "^^" ) expression
-	| expression ( "and" | "nand" | "nor" | "nox" | "or" | "xor" ) expression
-	| expression ( "+" | "-" | "*" | "**" | "/" | "%" | "<<" | ">>" ) expression
-	| expression "is" [ "not" ] [ "actually" ] type
-	| expression [ "not" ] "in" expression
-	| ternary
-	;
-
-assignment =
-	prefix
-	| postfix
-	| accessor [ "+" | "-" | "*" | "**" | "/" | "%" | "&" | "|" | "^" | "<<" | ">>" ] "=" expression
-	;
-
-break = "break" [ num_uint ] ;
-continue = "continue" [ num_uint ] ;
-decl = [ "mut" ] type id ;
-do = "do" block [ "while" "(" expression ")" ";" ] ;
-for = "for" "(" id "in" expression ")" block ;
-if = "if" "(" expression ")" block { "else" "if" "(" expression ")" block } [ "else" block ] ;
-postfix = accessor ( "++", "--" ) ;
-prefix = ( "!" | "++" | "-" | "--" | "not" ) expression ;
-return = "return" [ expression ] ;
-switch = "switch" "(" expression ")" "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
-ternary = expression "?" expression ":" expression ;
-throw = "throw" expression ;
-try = "try" block [ { "catch" type [ "as" id ] block } [ "catch" block ] [ "finally" block ] ] ;
-while = "while" "(" expression ")" block ;
-with = "with" expression "as" id block ;
+# types
 
 type = type "<" type ">" | id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
 type_float = "f32" | "f64" ;
 type_int = ( "i" | "u" ) ( "8" | "16" | "32" | "64" ) ;
 
-literal = bool | char | number | string ;
+# literals
+
+literal = bool | char | number | range | string ;
+
 bool = "true" | "false" ;
+
 char = num_uint | "'" ? extended ASCII (Windows-1252) character ? "'" ;
-string = "\"" { ? UTF-8 character ? } "\"" ;
 
 number = num_sci | num_flt | num_hex | num_int | num_oct | num_bin ;
 num_sci = ( num_flt | num_int ) "e" num_int ;
@@ -104,3 +153,7 @@ num_oct = "0o" { dig_oct { "'" } } dig_oct ;
 dig_oct = [0-7] ;
 num_bin = "0b" { dig_bin { "'" } } dig_bin ;
 dig_bin = [0-1] ;
+
+range = num_int ".." num_int ;
+
+string = "\"" { ? UTF-8 character ? } "\"" ;

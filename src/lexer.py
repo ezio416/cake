@@ -7,14 +7,14 @@ from .util import LanguageError, debug_header
 
 DIGIT_SYMBOLS      = '0123456789'
 IDENTIFIER_SYMBOLS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
-LOGIC_KEYWORDS     = 'and', 'nand', 'nor', 'not', 'nox', 'or', 'xor'
+LOGIC_KEYWORDS     = 'and', 'nand', 'nor', 'not', 'or', 'xnor', 'xor'
 NUMBER_SYMBOLS     = "'-.0123456789ABCDEFabcdefox"
 OPERATOR_SYMBOLS   = '!$%&*+-./:<=>?^|'
 PUNCTUATOR_SYMBOLS = r'"\'(),;[]{}'
 SPECIAL_KEYWORDS   = 'abstract', 'actually', 'alias', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch',\
-    'class', 'continue', 'default', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from', 'if',\
-    'import', 'in', 'interface', 'is', 'mut', 'namespace', 'override', 'private', 'protected', 'return', 'static',\
-    'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
+    'class', 'continue', 'default', 'del', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from',\
+    'if', 'import', 'in', 'interface', 'is', 'mut', 'namespace', 'of', 'override', 'private', 'protected', 'return',\
+    'static', 'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
 TYPE_KEYWORDS      = 'auto', 'bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'void'
 UNUSED_SYMBOLS     = '#@`~'
 
