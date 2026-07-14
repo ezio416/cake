@@ -156,4 +156,4 @@ dig_bin = [0-1] ;
 
 range = num_int ".." num_int ;
 
-string = "\"" { ? UTF-8 character ? } "\"" ;
+string = '"' { ? UTF-8 character ? } '"' ;
