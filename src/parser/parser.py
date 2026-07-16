@@ -29,7 +29,8 @@ class Node(ABC):
 
     def take(self) -> Token:
         token = self.next()
-        self.index += 1
+        if not (token.of('Punctuator') and token.has('EOF')):
+            self.index += 1
         return token
 
 
@@ -85,15 +86,15 @@ class Alias(Node):
 
 @dataclass
 class Class(Inheritable):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
 @dataclass
 class Declaration(Node):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Node):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Node):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
@@ -125,8 +126,8 @@ class EnumElement(Node):
 
 @dataclass
 class Function(Node):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
@@ -148,22 +149,22 @@ class Identifier:
 
 @dataclass
 class Interface(Inheritable):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
 @dataclass
 class Member(Node):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Class | Struct):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Class | Struct):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
 @dataclass
 class Method(Node):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Class | Interface):
-        super().__init__(tokens, name, parent)
+    def __init__(self, tokens: list[Token], name: Token, parent: Class | Interface):
+        super().__init__(tokens, Identifier(name), parent)
         ...
 
 
@@ -207,8 +208,8 @@ class Namespace(Node):
                     self.make_enum()
                 # elif next.has('interface'):
                 #     self.make_interface()
-                # elif next.has('namespace'):
-                #     self.make_namespace()
+                elif next.has('namespace'):
+                    self.make_namespace()
                 # elif next.has('struct'):
                 #     self.make_struct()
                 # elif next.has('abstract', 'final'):
@@ -346,7 +347,8 @@ class Namespace(Node):
             name = self.take()
             if self.next().has('{'):
                 self.take()  # '{'
-
+                self.namespaces.append(Namespace(self.tokens[self.index:], Identifier(name), self))
+                # TODO '}'
     def make_struct(self):
         ...
 
