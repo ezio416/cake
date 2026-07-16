@@ -15,7 +15,11 @@ class Node(ABC):
 
     @property
     def path(self) -> str:
-        return self.name if self.parent is None else f'{self.parent.path}.{self.name}'
+        if self.name == 'global':
+            return 'global'
+        if not self.parent:
+            return f'global.{self.name}'
+        return f'{self.parent.path}.{self.name}'
 
     def __init__(self, tokens: list[Token] = [], name: Identifier | str = '', parent: Node = None):
         self.tokens = tokens
@@ -74,7 +78,7 @@ class Alias(Node):
     old: Accessor
 
     def __init__(self, old: list[Token], name: Token, parent: Node):
-        if not name or not old:
+        if not old or not name:
             raise ParserError('alias missing token')
 
         super().__init__(old, Identifier(name), parent)
@@ -347,8 +351,20 @@ class Namespace(Node):
             name = self.take()
             if self.next().has('{'):
                 self.take()  # '{'
-                self.namespaces.append(Namespace(self.tokens[self.index:], Identifier(name), self))
-                # TODO '}'
+                stack = 1
+                tokens = []
+                while stack:
+                    next = self.next()
+                    if next.of('Punctuator'):
+                        if next.has('EOF'):
+                            raise ParserError(next.loc(), 'unexpected EOF')
+                        elif next.has('{'):
+                            stack += 1
+                        elif next.has('}'):
+                            stack -= 1
+                    tokens.append(self.take())
+                self.namespaces.append(Namespace(tokens + [Token('Punctuator', None)], Identifier(name), self))
+
     def make_struct(self):
         ...
 

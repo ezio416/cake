@@ -152,9 +152,11 @@ class Token:
     def __init__(self, kind: str, line: Line):
         self.kind = kind
         self.line = line
-        self.locale, self.string = line.new_locale()
-
-        self.string = self.string or 'EOF'
+        if self.line:
+            self.locale, self.string = line.new_locale()
+            self.string = self.string or 'EOF'
+        else:
+            self.string = 'EOF'
 
     def __repr__(self) -> str:
         return f"{self.kind[0]}'{self.string}'"
