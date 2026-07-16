@@ -77,7 +77,7 @@ class Alias(Node):
             raise ParserError('alias missing token')
 
         super().__init__(old, Identifier(name), parent)
-        self.old = Accessor(old, self)
+        self.old = Accessor(old, parent)
 
     def __repr__(self) -> str:
         return f'Alias["{self.old.path}" -> "{self.path}"]'
