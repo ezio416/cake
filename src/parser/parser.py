@@ -300,18 +300,6 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens')
 
-        self.aliases      = []
-        self.classes      = []
-        self.declarations = []
-        self.enums        = []
-        self.functions    = []
-        self.interfaces   = []
-        self.namespaces   = []
-        self.structs      = []
-
-        self.index = 0
-        self.scope = ['']
-
         while not ((next := self.next()).of('Punctuator') and next.has('EOF')):
             if next.of('Special'):
                 if next.has('alias'):
