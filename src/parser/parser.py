@@ -1,29 +1,59 @@
+from abc import ABC
 from dataclasses import dataclass
 import os
 
-from .expressions.expression import Expression
-from .node import Node
 from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
 @dataclass
-class Accessor:
-    parts:  list[Identifier | Type]
-    name:   str
-    scope:  str
+class Node(ABC):
+    index:  int
+    name:   Identifier | str
+    parent: Node | None
     tokens: list[Token]
 
     @property
     def path(self) -> str:
-        return f'{self.scope}.{'.'.join(self.parts)}'
+        return self.name if self.parent is None else f'{self.parent.path}.{self.name}'
 
-    def __init__(self, tokens: list[Token], scope: str = ''):
+    def __init__(self, tokens: list[Token] = [], name: Identifier | str = '', parent: Node = None):
         self.tokens = tokens
-        self.scope = scope
+        self.name   = name
+        self.parent = parent
+
+        self.index  = 0
+
+    def next(self) -> Token:
+        return self.tokens[self.index]
+
+    def take(self) -> Token:
+        token = self.next()
+        self.index += 1
+        return token
+
+
+@dataclass
+class Inheritable(Node, ABC):
+    abstract:    bool
+    final:       bool
+    inheritance: list[Inheritable]
+
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
+        super().__init__(tokens, name, parent)
+        self.abstract    = False
+        self.final       = False
+        self.inheritance = []
+
+
+@dataclass
+class Accessor(Node):
+    parts: list[Identifier | Type]
+
+    def __init__(self, tokens: list[Token] = [], parent: Node = None):
+        super().__init__(tokens, parent=parent)
 
         self.parts = []
-        self.name  = ''
 
         for token in self.tokens:
             if token.of('Identifier', 'Type'):
@@ -39,85 +69,64 @@ class Accessor:
 
 
 @dataclass
-class Alias:
-    new:   Identifier
-    old:   Accessor
-    scope: str
+class Alias(Node):
+    old: Accessor
 
-    @property
-    def path(self) -> str:
-        return f'{self.scope}.{self.new}'
-
-    def __init__(self, old: list[Token], new: Token, scope: str = ''):
-        if not old or not new:
+    def __init__(self, old: list[Token], name: Token, parent: Node):
+        if not name or not old:
             raise ParserError('alias missing token')
 
-        self.old   = Accessor(old)
-        self.new   = Identifier(new)
-        self.scope = scope
+        super().__init__(old, Identifier(name), parent)
+        self.old = Accessor(old, self)
 
     def __repr__(self) -> str:
-        return f'Alias["{self.old.name}" -> "{self.path}"]'
+        return f'Alias["{self.old.path}" -> "{self.path}"]'
 
 
 @dataclass
-class Class:
-    ...
-
-    def __init__(self):
+class Class(Inheritable):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
+        super().__init__(tokens, name, parent)
         ...
 
 
 @dataclass
-class Declaration:
-    ...
-
-    def __init__(self):
+class Declaration(Node):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Node):
+        super().__init__(tokens, name, parent)
         ...
 
 
 @dataclass
-class Enum:
+class Enum(Node):
     elements: list[EnumElement]
-    name:     Identifier
-    scope:    str
 
-    @property
-    def path(self) -> str:
-        return f'{self.scope}.{self.name}'
-
-    def __init__(self, name: Token, elements: list[EnumElement], scope: str = ''):
-        self.name     = Identifier(name)
+    def __init__(self, elements: list[EnumElement], name: Token, parent: Namespace):
+        super().__init__([], Identifier(name), parent)
         self.elements = elements
-        self.scope    = scope
+        for e in self.elements:
+            e.parent = self
 
     def __repr__(self) -> str:
         return f'Enum["{self.path}" {self.elements}]'
 
 
 @dataclass
-class EnumElement:
-    name:  Identifier
+class EnumElement(Node):
     value: int
 
-    @property
-    def path(self) -> str:
-        return f'{self.scope}.{self.name}'
-
-    def __init__(self, name: Token, value: int = 0, scope: str = ''):
-        self.name  = Identifier(name)
+    def __init__(self, name: Token, value: int = 0):
+        super().__init__(name=Identifier(name))
         self.value = value
-        self.scope = scope
 
     def __repr__(self) -> str:
         return f'{self.name}={self.value}'
 
 
 @dataclass
-class Function:
-    ...
-
-    def __init__(self):
+class Function(Node):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
+        super().__init__(tokens, name, parent)
         ...
 
 
@@ -126,10 +135,9 @@ class Identifier:
     token: Token
 
     def __init__(self, token: Token):
-        if token.of('Identifier'):
-            self.token = token
-        else:
+        if not token.of('Identifier'):
             raise ParserError(token.loc(), 'expected Identifier')
+        self.token = token
 
     def __repr__(self) -> str:
         return self.token.string
@@ -139,15 +147,28 @@ class Identifier:
 
 
 @dataclass
-class Interface:
-    name: Identifier
-
-    def __init__(self):
+class Interface(Inheritable):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
+        super().__init__(tokens, name, parent)
         ...
 
 
 @dataclass
-class Namespace:
+class Member(Node):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Class | Struct):
+        super().__init__(tokens, name, parent)
+        ...
+
+
+@dataclass
+class Method(Node):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Class | Interface):
+        super().__init__(tokens, name, parent)
+        ...
+
+
+@dataclass
+class Namespace(Node):
     aliases:      list[Alias]
     classes:      list[Class]
     declarations: list[Declaration]
@@ -157,58 +178,88 @@ class Namespace:
     namespaces:   list[Namespace]
     structs:      list[Struct]
 
-    def __init__(self):
-        ...
+    def __init__(self, tokens: list[Token], name: Identifier | str, parent: Node = None):
+        super().__init__(tokens, name, parent)
 
+        self.aliases      = []
+        self.classes      = []
+        self.declarations = []
+        self.enums        = []
+        self.functions    = []
+        self.interfaces   = []
+        self.namespaces   = []
+        self.structs      = []
 
-@dataclass
-class Struct:
-    name:  Identifier
-    scope: str
+        if self.name == 'global':
+            for ns in ('bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'std', 'u8', 'u16', 'u32', 'u64'):
+                self.namespaces.append(Namespace([], ns, self))
 
-    def __init__(self):
-        ...
+        if not self.tokens:
+            return
 
+        while not ((next := self.next()).of('Punctuator') and next.has('EOF')):
+            if next.of('Special'):
+                if next.has('alias'):
+                    self.make_alias()
+                # elif next.has('class'):
+                #     self.make_class()
+                elif next.has('enum'):
+                    self.make_enum()
+                # elif next.has('interface'):
+                #     self.make_interface()
+                # elif next.has('namespace'):
+                #     self.make_namespace()
+                # elif next.has('struct'):
+                #     self.make_struct()
+                # elif next.has('abstract', 'final'):
+                #     self.take()
+                #     match self.next().string:
+                #         case 'class':
+                #             self.make_class()
+                #             pass
+                #         case 'interface':
+                #             self.make_interface()
+                #             pass
+                #         case 'struct':
+                #             self.make_struct()
+                #             pass
+                else:
+                    print(self.take().loc(), 'warning: unexpected special keyword')
+            # elif next.of('Identifier', 'Type'):
+            #     kind = self.take()
+            #     if self.next().of('Operator') and self.next().has('$'):
+            #         special = self.take()
+            #     if self.next().of('Identifier'):
+            #         name = self.take()
+            else:
+                print(self.take().loc(), 'warning: unexpected token')
 
-@dataclass
-class Parser:
-    global_ns:  Namespace
-    index:      int
-    output_dir: str
-    scope:      list[str]
-    tokens:     list[Token]
-    tree:       Node
-
-    @property
-    def expression(self):
-        return Expression
-
-    def __init__(self, tokens: list[Token], output_dir: str = ''):
-        self.tokens     = tokens
-        self.output_dir = output_dir
-
-        self.tree = None
-
-    def expecting_has(self, *strings: str) -> Token:
-        if self.next().has(*strings):
-            return self.take()
-
-        raise ParserError(self.next().line.loc(), f'expecting has {strings}')
-
-    def expecting_of(self, *kinds: str) -> Token:
-        if self.next().of(*kinds):
-            return self.take()
-
-        raise ParserError(self.next().line.loc(), f'expecting of {kinds}')
-
-    def id_exists(self, id: str) -> bool:
+    def __getitem__(self, key: str) -> Node | None:
         for a in self.aliases:
-            if a.new.string == id:
-                return True
+            if key == a.name:
+                return a
+        for c in self.classes:
+            if key == c.name:
+                return c
+        for d in self.declarations:
+            if key == d.name:
+                return d
         for e in self.enums:
-            if e.name == id:
-                return True
-        return False
+            if key == e.name:
+                return e
+        for f in self.functions:
+            if key == f.name:
+                return f
+        for i in self.interfaces:
+            if key == i.name:
+                return i
+        for n in self.namespaces:
+            if key == n.name:
+                return n
+        for s in self.structs:
+            if key == s.name:
+                return s
+        return None
 
     def make_alias(self):
         self.take()  # 'alias'
@@ -220,7 +271,7 @@ class Parser:
                 new = self.take()
                 if self.next().has(';'):
                     self.take()  # ';'
-                    self.aliases.append(Alias([old], new, '.'.join(self.scope)))
+                    self.aliases.append(Alias([old], new, self))
                     return
 
         raise ParserError(self.next().loc(), 'bad alias statement')
@@ -252,7 +303,7 @@ class Parser:
                                 if self.next().has(','):
                                     self.take()  # ','
                                 prev_value += 1
-                                elements.append(EnumElement(element_name, prev_value, '.'.join(self.scope + [name.string])))
+                                elements.append(EnumElement(element_name, prev_value))
                                 if self.next().has('}'):
                                     self.take()  # '}'
                                     break
@@ -261,7 +312,7 @@ class Parser:
                             if self.next().of('Number'):
                                 value = int(self.take().string)
                                 prev_value = value
-                                elements.append(EnumElement(element_name, value, '.'.join(self.scope + [name.string])))
+                                elements.append(EnumElement(element_name, value))
                             if self.next().of('Punctuator') and self.next().has(','):
                                 self.take()  # ','
                     elif self.next().of('Punctuator') and self.next().has('}'):
@@ -277,7 +328,7 @@ class Parser:
                         raise ParserError(element.name.token.loc(), f'duplicate enum value: {element.value}')
                     seen.add(element.value)
 
-                self.enums.append(Enum(name, elements, '.'.join(self.scope)))
+                self.enums.append(Enum(elements, name, self))
                 return
 
         raise ParserError(self.next().loc(), 'bad enum definition')
@@ -289,53 +340,64 @@ class Parser:
         ...
 
     def make_namespace(self):
-        ...
+        self.take()  # 'namespace'
+
+        if self.next().of('Identifier'):
+            name = self.take()
+            if self.next().has('{'):
+                self.take()  # '{'
 
     def make_struct(self):
         ...
+
+
+@dataclass
+class Struct(Inheritable):
+    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
+        super().__init__(tokens, name, parent)
+        ...
+
+
+@dataclass
+class Parser:
+    global_ns:  Namespace
+    output_dir: str
+    tokens:     list[Token]
+    tree:       Node
+
+    def __init__(self, tokens: list[Token], output_dir: str = ''):
+        self.tokens     = tokens
+        self.output_dir = output_dir
+
+        self.tree = None
+
+    def expecting_has(self, *strings: str) -> Token:
+        if self.next().has(*strings):
+            return self.take()
+
+        raise ParserError(self.next().line.loc(), f'expecting has {strings}')
+
+    def expecting_of(self, *kinds: str) -> Token:
+        if self.next().of(*kinds):
+            return self.take()
+
+        raise ParserError(self.next().line.loc(), f'expecting of {kinds}')
+
+    def id_exists(self, id: str) -> bool:
+        for a in self.global_ns.aliases:
+            if a.name == id:
+                return True
+        for e in self.global_ns.enums:
+            if e.name == id:
+                return True
+        return False
 
     def next(self) -> Token:
         return self.tokens[self.index]
 
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens')
-
-        while not ((next := self.next()).of('Punctuator') and next.has('EOF')):
-            if next.of('Special'):
-                if next.has('alias'):
-                    self.make_alias()
-                # elif next.has('class'):
-                #     self.make_class()
-                elif next.has('enum'):
-                    self.make_enum()
-                # elif next.has('interface'):
-                #     self.make_interface()
-                # elif next.has('namespace'):
-                #     self.make_namespace()
-                # elif next.has('struct'):
-                #     self.make_struct()
-                # elif next.has('abstract', 'final'):
-                #     self.take()
-                #     match self.next().string:
-                #         case 'class':
-                #             self.make_class()
-                #             pass
-                #         case 'interface':
-                #             self.make_interface()
-                #             pass
-                #         case 'struct':
-                #             self.make_struct()
-                #             pass
-                else:
-                    print(self.take().loc(), 'warning: unexpected token')
-            # elif next.of('Identifier', 'Type'):
-            #     kind = self.take()
-            #     if self.next().of('Operator') and self.next().has('$'):
-            #         special = self.take()
-            #     if self.next().of('Identifier'):
-            #         name = self.take()
-            else:
-                print(self.take().loc(), 'warning: unexpected token')
+        self.global_ns = Namespace(self.tokens, 'global')
 
     def take(self) -> Token:
         token = self.next()
@@ -351,11 +413,11 @@ class Parser:
             # f.write(f'tree:\n\t{self.tree}\n')
 
             f.write('aliases:\n')
-            for a in self.aliases:
+            for a in self.global_ns.aliases:
                 f.write(f'\t{repr(a)}\n')
 
             f.write('enums:\n')
-            for e in self.enums:
+            for e in self.global_ns.enums:
                 f.write(f'\t{repr(e)}\n')
 
 
@@ -364,11 +426,10 @@ class ParserError(LanguageError):
 
 
 @dataclass
-class Type:
-    token: Token
-
+class Type(Identifier):
     def __init__(self, token: Token):
-        if token.of('Type'):
-            self.token = token
-        else:
+        if not token.of('Type'):
             raise ParserError(token.loc(), 'expected Type')
+        self.token = token
+        self.name = token.string
+
