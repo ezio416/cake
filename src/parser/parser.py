@@ -196,8 +196,7 @@ class Namespace(Node):
         self.structs      = []
 
         if self.name == 'global':
-            for ns in ('bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'std', 'u8', 'u16', 'u32', 'u64'):
-                self.namespaces.append(Namespace([], ns, self))
+            self.namespaces.append(BareNamespace('std', self))
 
         if not self.tokens:
             return
@@ -367,6 +366,11 @@ class Namespace(Node):
 
     def make_struct(self):
         ...
+
+
+class BareNamespace(Namespace):
+    def __init__(self, name: Identifier | str, parent: Namespace = None):
+        super().__init__([], name, parent)
 
 
 @dataclass
