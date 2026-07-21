@@ -82,7 +82,7 @@ class Alias(Node):
             raise ParserError('alias missing token')
 
         super().__init__(old, Identifier(name), parent)
-        self.old = Accessor(old, parent)
+        self.old = Accessor(old, parent.parent)
 
     def __repr__(self) -> str:
         return f'Alias["{self.old.path}" -> "{self.path}"]'
@@ -183,7 +183,7 @@ class Namespace(Node):
     namespaces:   list[Namespace]
     structs:      list[Struct]
 
-    def __init__(self, tokens: list[Token], name: Identifier | str, parent: Node = None):
+    def __init__(self, tokens: list[Token], name: Identifier | str, parent: Namespace = None):
         super().__init__(tokens, name, parent)
 
         self.aliases      = []
@@ -450,4 +450,3 @@ class Type(Identifier):
             raise ParserError(token.loc(), 'expected Type')
         self.token = token
         self.name = token.string
-
