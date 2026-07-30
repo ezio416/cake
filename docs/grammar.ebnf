@@ -53,7 +53,7 @@ base_modifiers = "abstract" | "final" ;
 inheritance = ":" { type "," } type [ "," ] ;
 member_def = member_modifiers decl_stmt ;
 method_def = member_modifiers function_type [ "$" ] id function_params ( block | ";" ) ;
-member_modifiers = "protected" | ( "private" | [ "final" ] ) [ "override" ] ;
+member_modifiers = "protected" [ "final" ] | [ "private" | "final" ] [ "override" ] ;
 
 do_stmt = "do" block [ "while" paren_expr ";" ] ;
 
@@ -83,7 +83,7 @@ struct_def = [ base_modifiers ] "struct" id [ inheritance ] "{" { member_def } "
 
 switch_stmt = "switch" paren_expr "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
 
-try_stmt = "try" block [ { "catch" type [ "as" id ] block } [ "catch" block ] [ "finally" block ] ] ;
+try_stmt = "try" block [ "catch" block ] [ "finally" block ] ;
 
 while_stmt = "while" paren_expr block ;
 
