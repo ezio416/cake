@@ -165,7 +165,7 @@ class Token:
         return self.string in strings
 
     def loc(self) -> str:
-        return f'("{self.line.file.path}", line {self.line.num}, column {self.locale[0] + 1})'
+        return f'"{self.line.file.path}", line {self.line.num}, column {self.locale[0] + 1}'
 
     def of(self, *kinds: str) -> bool:
         return self.kind in kinds
