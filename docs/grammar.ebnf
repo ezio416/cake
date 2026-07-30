@@ -44,6 +44,7 @@ compound_stmt =
 	| struct_def
 	| switch_stmt
 	| try_stmt
+	| union_def
 	| while_stmt
 	| with_stmt
 	;
@@ -84,6 +85,12 @@ struct_def = [ base_modifiers ] "struct" id [ inheritance ] "{" { member_def } "
 switch_stmt = "switch" paren_expr "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
 
 try_stmt = "try" block [ "catch" block ] [ "finally" block ] ;
+
+union_def = "union" id [ union_params ] "{" union_elements "}" ;
+union_params = "<" { union_param "," } [ union_param [ "," ] ] ">" ;
+union_param = type id ;
+union_elements = { union_element "," } [ union_element [ "," ] ] ;
+union_element = id [ "(" id ")" ] ;
 
 while_stmt = "while" paren_expr block ;
 
