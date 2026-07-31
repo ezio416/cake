@@ -161,6 +161,6 @@ dig_oct = [0-7] ;
 num_bin = "0b" { dig_bin { "'" } } dig_bin ;
 dig_bin = [0-1] ;
 
-range = num_int ".." num_int ;
+range = number ".." [ "=" ] number ;
 
 string = '"' { ? UTF-8 character ? } '"' ;

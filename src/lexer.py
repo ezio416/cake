@@ -37,6 +37,44 @@ class Lexer:
             print(f'lexing "{file.path}"')
 
             for line in file.lines:
+                def check_number(num: str):
+                    if num[0] not in DIGIT_SYMBOLS:
+                        raise LexerError(f'numbers must start with a digit {line.loc()}: "{num}"')
+
+                    if num.count('.') > 1:
+                        raise LexerError(f'numbers can have a maximum of one decimal point {line.loc()}: "{num}"')
+
+                    if num[0] == '0':
+                        if len(num) > 1:
+                            if num[1] == 'b':
+                                if len(num) == 2:
+                                    raise LexerError(f'invalid binary number {line.loc()}: "{num}"')
+                                for char in num[2:]:
+                                    if char not in "'01":
+                                        raise LexerError(f'invalid binary number {line.loc()}: "{num}"')
+                            elif num[1] == 'o':
+                                if len(num) == 2:
+                                    raise LexerError(f'invalid octal number {line.loc()}: "{num}"')
+                                for char in num[2:]:
+                                    if char not in "'01234567":
+                                        raise LexerError(f'invalid octal number {line.loc()}: "{num}"')
+                            elif num[1] == 'x':
+                                if len(num) == 2:
+                                    raise LexerError(f'invalid hexadecimal number {line.loc()}: "{num}"')
+                                for char in num[2:]:
+                                    if char not in "'0123456789ABCDEFabcdef":
+                                        raise LexerError(f'invalid hexadecimal number {line.loc()}: "{num}"')
+
+                    elif 'e' in num:
+                        if num.count('e') > 1 or num.startswith('e') or num.endswith('e'):
+                            raise LexerError(f'invalid scientific number {line.loc()}: "{num}"')
+                        coef, exp = num.split('e')
+                        if '-' in coef or ('-' in exp and (not exp.startswith('-') or exp.count('-') > 1)):
+                            raise LexerError(f'invalid scientific number {line.loc()}: "{num}"')
+                        for char in exp:
+                            if char not in DIGIT_SYMBOLS + '-':
+                                raise LexerError(f'invalid scientific number {line.loc()}: "{num}"')
+
                 while not line.finished():
                     line.ignore_spaces()
 
@@ -48,50 +86,62 @@ class Lexer:
                         if op == '/' and line.next() == '/':
                             line.ignore()
                             break
-                        for char in '!%&*+-/<=>^|':  # TODO <<= >>=
-                            if op == char and line.next() in char + '=':
+                        if op == '.' and line.next() == '.':
+                            line.take()
+                            if line.next() == '.':
                                 line.take()
-                                break
+                                self.tokens.append(Token('Ellipses', line))
+                                file.tokens.append(self.tokens[-1])
+                                continue
+                            elif line.next() == '=':
+                                line.take()
+                        else:
+                            took = False
+                            for char in '!%/=':
+                                if op == char and line.next() == '=':
+                                    line.take()
+                                    took = True
+                                    break
+                            if not took:
+                                for char in '&*+-<>^|':
+                                    if op == char:
+                                        if line.next() == '=':
+                                            line.take()
+                                            took = True
+                                            break
+                                        if not took and line.next() == char:
+                                            line.take()
+                                            for char in '&*<>^|':
+                                                if op == char and line.next() == '=':
+                                                    line.take()
+                                                    took = True
+                                                    break
+                                            if took:
+                                                break
+
                         self.tokens.append(Token('Operator', line))
                         file.tokens.append(self.tokens[-1])
 
                     elif line.next() in DIGIT_SYMBOLS:
                         while line.next() in NUMBER_SYMBOLS:
                             line.take()
-                        taken = line.taken()
-                        if taken[0] not in DIGIT_SYMBOLS:
-                            raise LexerError(f'numbers must start with a digit {line.loc()}: "{taken}"')
-                        if taken.count('.') > 1:
-                            raise LexerError(f'numbers can have a maximum of one decimal point {line.loc()}: "{taken}"')
-                        if taken[0] == '0':
-                            if len(taken) > 1:
-                                if taken[1] == 'b':
-                                    if len(taken) == 2:
-                                        raise LexerError(f'invalid binary number {line.loc()}: "{taken}"')
-                                    for char in taken[2:]:
-                                        if char not in "'01":
-                                            raise LexerError(f'invalid binary number {line.loc()}: "{taken}"')
-                                elif taken[1] == 'o':
-                                    if len(taken) == 2:
-                                        raise LexerError(f'invalid octal number {line.loc()}: "{taken}"')
-                                    for char in taken[2:]:
-                                        if char not in "'01234567":
-                                            raise LexerError(f'invalid octal number {line.loc()}: "{taken}"')
-                                elif taken[1] == 'x':
-                                    if len(taken) == 2:
-                                        raise LexerError(f'invalid hexadecimal number {line.loc()}: "{taken}"')
-                                    for char in taken[2:]:
-                                        if char not in "'0123456789ABCDEFabcdef":
-                                            raise LexerError(f'invalid hexadecimal number {line.loc()}: "{taken}"')
-                        elif 'e' in taken:
-                            if taken.count('e') > 1 or taken.startswith('e') or taken.endswith('e'):
-                                raise LexerError(f'invalid scientific number {line.loc()}: "{taken}"')
-                            coef, exp = taken.split('e')
-                            if '-' in coef or ('-' in exp and (not exp.startswith('-') or exp.count('-') > 1)):
-                                raise LexerError(f'invalid scientific number {line.loc()}: "{taken}"')
-                            for char in exp:
-                                if char not in DIGIT_SYMBOLS + '-':
-                                    raise LexerError(f'invalid scientific number {line.loc()}: "{taken}"')
+                            if line.taken().endswith('..'):
+                                line.untake(2)
+                                check_number(line.taken())
+                                self.tokens.append(Token('Number', line))
+                                file.tokens.append(self.tokens[-1])
+                                line.take()
+                                line.take()
+                                if line.next() == '=':
+                                    line.take()
+                                self.tokens.append(Token('Operator', line))
+                                file.tokens.append(self.tokens[-1])
+                                while line.next() in NUMBER_SYMBOLS:
+                                    line.take()
+                                break
+
+                        check_number(line.taken()[0])
+
                         self.tokens.append(Token('Number', line))
                         file.tokens.append(self.tokens[-1])
 

@@ -76,6 +76,12 @@ class Line:
     def taken(self) -> str:
         return self.string[self.locale[0]:self.locale[1]]
 
+    def untake(self, count: int = 1) -> None:
+        for _ in range(count):
+            if not self.locale[1]:
+                return
+            self.locale[1] -= 1
+
 
 @dataclass
 class Reader:
