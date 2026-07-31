@@ -37,6 +37,11 @@ class Node(ABC):
             self.index += 1
         return token
 
+    def take_specific(self, of: str, has: str) -> tuple[Token]:
+        if self.next().of(of) and self.next().has(has):
+            return self.take(),
+        return ()
+
 
 @dataclass
 class Inheritable(Node, ABC):
@@ -70,7 +75,7 @@ class Accessor(Node):
             elif token.of('Operator') and token.has('.'):
                 self.name += token.string
             else:
-                raise ParserError(token.loc(), 'unexpected token in accessor')
+                raise ParserError(token, 'unexpected token in accessor')
 
 
 @dataclass
@@ -79,7 +84,7 @@ class Alias(Node):
 
     def __init__(self, old: list[Token], name: Token, parent: Node):
         if not old or not name:
-            raise ParserError('alias missing token')
+            raise LanguageError('alias missing token')
 
         super().__init__(old, Identifier(name), parent)
         self.old = Accessor(old, parent.parent)
@@ -118,14 +123,14 @@ class Enum(Node):
 
 @dataclass
 class EnumElement(Node):
-    value: int
+    held_type: str
 
-    def __init__(self, name: Token, value: int = 0):
+    def __init__(self, name: Token, held_type: str = ''):
         super().__init__(name=Identifier(name))
-        self.value = value
+        self.held_type = held_type
 
     def __repr__(self) -> str:
-        return f'{self.name}={self.value}'
+        return f'{self.name}{f'({self.held_type})' if self.held_type else ''}'
 
 
 @dataclass
@@ -141,7 +146,7 @@ class Identifier:
 
     def __init__(self, token: Token):
         if not token.of('Identifier'):
-            raise ParserError(token.loc(), 'expected Identifier')
+            raise ParserError(token, 'expected Identifier')
         self.token = token
 
     def __repr__(self) -> str:
@@ -278,7 +283,7 @@ class Namespace(Node):
                     self.aliases.append(Alias([old], new, self))
                     return
 
-        raise ParserError(self.next().loc(), 'bad alias statement')
+        raise ParserError(self.next(), 'bad alias statement')
 
     def make_class(self):
         if self.next().of('Special') and self.next().has('abstract', 'final'):
@@ -286,6 +291,8 @@ class Namespace(Node):
 
         if self.next().of('Special') and self.next().has('class'):
             self.take()
+
+        ...
 
     def make_declaration(self):
         ...
@@ -295,47 +302,41 @@ class Namespace(Node):
 
         if self.next().of('Identifier'):
             name = self.take()
-            if self.next().has('{'):
-                self.take()  # '{'
+            if self.take_specific('Punctuator', '{'):
                 elements: list[EnumElement] = []
-                prev_value = -1
                 while True:
-                    if self.next().of('Identifier'):
+                    if (next := self.next()).of('Identifier'):
                         element_name = self.take()
-                        if self.next().of('Punctuator'):
-                            if self.next().has(',', '}'):
-                                if self.next().has(','):
-                                    self.take()  # ','
-                                prev_value += 1
-                                elements.append(EnumElement(element_name, prev_value))
-                                if self.next().has('}'):
-                                    self.take()  # '}'
+                        if self.take_specific('Punctuator', ','):
+                            elements.append(EnumElement(element_name))
+                        elif self.take_specific('Punctuator', '}'):
+                            elements.append(EnumElement(element_name))
+                            break
+                        elif self.take_specific('Punctuator', '('):
+                            held_type = ''
+                            while True:
+                                if (next := self.next()).of('Identifier') or next.of('Type'):
+                                    held_type += self.take().string
+                                    if self.take_specific('Operator', '.'):
+                                        held_type += '.'
+                                else:
+                                    if not held_type or not self.take_specific('Punctuator', ')'):
+                                        raise ParserError(next, 'unexpected token in enum')
+                                    if self.take_specific('Punctuator', ','):
+                                        pass
+                                    elements.append(EnumElement(element_name, held_type))
                                     break
-                        elif self.next().of('Operator') and self.next().has('='):
-                            self.take()  # '='
-                            if self.next().of('Number'):
-                                value = int(self.take().string)
-                                prev_value = value
-                                elements.append(EnumElement(element_name, value))
-                            if self.next().of('Punctuator') and self.next().has(','):
-                                self.take()  # ','
-                    elif self.next().of('Punctuator') and self.next().has('}'):
-                        self.take()  # '}'
+                        else:
+                            raise ParserError(next, 'unexpected token in enum')
+                    elif self.take_specific('Punctuator', '}'):
                         break
                     else:
-                        next = self.next()
-                        raise ParserError(next.loc(), 'unexpected error')
-
-                seen = set()
-                for element in elements:
-                    if element.value in seen:
-                        raise ParserError(element.name.token.loc(), f'duplicate enum value: {element.value}')
-                    seen.add(element.value)
+                        raise ParserError(next, 'unexpected token')
 
                 self.enums.append(Enum(elements, name, self))
                 return
 
-        raise ParserError(self.next().loc(), 'bad enum definition')
+        raise ParserError(self.next(), 'bad enum definition')
 
     def make_function(self):
         ...
@@ -356,7 +357,7 @@ class Namespace(Node):
                     next = self.next()
                     if next.of('Punctuator'):
                         if next.has('EOF'):
-                            raise ParserError(next.loc(), 'unexpected EOF')
+                            raise ParserError(next, 'unexpected EOF')
                         elif next.has('{'):
                             stack += 1
                         elif next.has('}'):
@@ -393,17 +394,17 @@ class Parser:
 
         self.tree = None
 
-    def expecting_has(self, *strings: str) -> Token:
-        if self.next().has(*strings):
-            return self.take()
+    # def expecting_has(self, *strings: str) -> Token:
+    #     if self.next().has(*strings):
+    #         return self.take()
 
-        raise ParserError(self.next().line.loc(), f'expecting has {strings}')
+    #     raise ParserError(self.next().line.loc(), f'expecting has {strings}')
 
-    def expecting_of(self, *kinds: str) -> Token:
-        if self.next().of(*kinds):
-            return self.take()
+    # def expecting_of(self, *kinds: str) -> Token:
+    #     if self.next().of(*kinds):
+    #         return self.take()
 
-        raise ParserError(self.next().line.loc(), f'expecting of {kinds}')
+    #     raise ParserError(self.next().line.loc(), f'expecting of {kinds}')
 
     def id_exists(self, id: str) -> bool:
         for a in self.global_ns.aliases:
@@ -428,7 +429,7 @@ class Parser:
 
     def write_debug(self) -> None:
         if not self.output_dir:
-            raise ParserError('no output folder given')
+            raise LanguageError('no output folder given')
 
         with open(os.path.join(self.output_dir, '3_parser.cakedebug'), 'w', newline='\n') as f:
             f.write(debug_header('step 3: parser'))
@@ -444,13 +445,14 @@ class Parser:
 
 
 class ParserError(LanguageError):
-    pass
+    def __init__(self, token: Token, *args):
+        super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
 
 
 @dataclass
 class Type(Identifier):
     def __init__(self, token: Token):
         if not token.of('Type'):
-            raise ParserError(token.loc(), 'expected Type')
+            raise ParserError(token, 'expected Type')
         self.token = token
         self.name = token.string
