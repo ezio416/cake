@@ -1,29 +1,38 @@
-alias i32 int;  // alias
+alias i32 int;
 
-class C : I, S {  // cls
+class C : I, S {
     override void $init() {
         std.print(4);
     }
 }
 
-int i;  // decl
-
-enum E {  // enum
-    a, b = 2, c
+enum E {
+    a = 3,
+    b = 5
 }
 
-void $main() {  // func
+int i;
+
+void main() {
     (6 + 7) ** 8 * -9
 }
 
-interface I {  // intf
+interface I {
     void hello();
 }
 
-namespace N {  // ns
+namespace N {
     alias int i;
 }
 
-struct S {  // strc
+struct S {
     N.i j = -42e1;
+}
+
+union U {
+    a,
+    b(i32),
+    c(E),
+    d(N.i),
+    e
 }
