@@ -52,6 +52,8 @@ namespace std.math {
     f32 log(f32 f, i32 base) { ... }  // forbidden expression
     f64 log(f64 f, i64 base) { ... }  // forbidden expression
 
+    f32 max(f32 f, f32 g) { return f >= g ? f : g; }
+    f64 max(f64 f, f64 g) { return f >= g ? f : g; }
     i8  max(i8  i, i8  j) { return i >= j ? i : j; }
     i16 max(i16 i, i16 j) { return i >= j ? i : j; }
     i32 max(i32 i, i32 j) { return i >= j ? i : j; }
@@ -61,6 +63,8 @@ namespace std.math {
     u32 max(u32 u, u32 v) { return u >= v ? u : v; }
     u64 max(u64 u, u64 v) { return u >= v ? u : v; }
 
+    f32 min(f32 f, f32 g) { return f <= g ? f : g; }
+    f64 min(f64 f, f64 g) { return f <= g ? f : g; }
     i8  min(i8  i, i8  j) { return i <= j ? i : j; }
     i16 min(i16 i, i16 j) { return i <= j ? i : j; }
     i32 min(i32 i, i32 j) { return i <= j ? i : j; }
@@ -73,19 +77,16 @@ namespace std.math {
     f32 pow(f32 x, f32 y) { ... }  // forbidden expression
     f64 pow(f64 x, f64 y) { ... }  // forbidden expression
 
-    f32 rand(f32 min, f32 max) { ... }  // forbidden expression
-    f64 rand(f64 min, f64 max) { ... }  // forbidden expression
-    i8  rand(i8  min, i8  max) { ... }  // forbidden expression
-    i16 rand(i16 min, i16 max) { ... }  // forbidden expression
-    i32 rand(i32 min, i32 max) { ... }  // forbidden expression
-    i64 rand(i64 min, i64 max) { ... }  // forbidden expression
-    u8  rand(u8  min, u8  max) { ... }  // forbidden expression
-    u16 rand(u16 min, u16 max) { ... }  // forbidden expression
-    u32 rand(u32 min, u32 max) { ... }  // forbidden expression
-    u64 rand(u64 min, u64 max) { ... }  // forbidden expression
-
-    f32 root(f32 f, f32 index) { ... }  // forbidden expression
-    f64 root(f64 f, f64 index) { ... }  // forbidden expression
+    f32 rand(range<f32>& r) { ... }  // forbidden expression
+    f64 rand(range<f64>& r) { ... }  // forbidden expression
+    i8  rand(range<i8>& r)  { ... }  // forbidden expression
+    i16 rand(range<i16>& r) { ... }  // forbidden expression
+    i32 rand(range<i32>& r) { ... }  // forbidden expression
+    i64 rand(range<i64>& r) { ... }  // forbidden expression
+    u8  rand(range<u8>& r)  { ... }  // forbidden expression
+    u16 rand(range<u16>& r) { ... }  // forbidden expression
+    u32 rand(range<u32>& r) { ... }  // forbidden expression
+    u64 rand(range<u64>& r) { ... }  // forbidden expression
 
     f32 round(f32 f, i8 decimals = 0) { ... }  // forbidden expression
     f64 round(f64 f, i8 decimals = 0) { ... }  // forbidden expression
@@ -93,8 +94,8 @@ namespace std.math {
     f32 sin(f32 f) { ... }  // forbidden expression
     f64 sin(f64 f) { ... }  // forbidden expression
 
-    f32 sqrt(f32 f) { return root(f, 2.0); }
-    f64 sqrt(f64 f) { return root(f, 2.0); }
+    f32 sqrt(f32 f) { return pow(f, 0.5); }
+    f64 sqrt(f64 f) { return pow(f, 0.5); }
 
     f32 tan(f32 f) { ... }  // forbidden expression
     f64 tan(f64 f) { ... }  // forbidden expression
