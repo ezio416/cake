@@ -123,14 +123,14 @@ class Enum(Node):
 
 @dataclass
 class EnumElement(Node):
-    held_type: str
+    value: int
 
-    def __init__(self, name: Token, held_type: str = ''):
+    def __init__(self, name: Token, value: int = 0):
         super().__init__(name=Identifier(name))
-        self.held_type = held_type
+        self.value = value
 
     def __repr__(self) -> str:
-        return f'{self.name}{f'({self.held_type})' if self.held_type else ''}'
+        return f'{self.name}={self.value}'
 
 
 @dataclass
@@ -234,12 +234,7 @@ class Namespace(Node):
                 #             pass
                 else:
                     print(self.take().loc(), 'warning: unexpected special keyword')
-            # elif next.of('Identifier', 'Type'):
-            #     kind = self.take()
-            #     if self.next().of('Operator') and self.next().has('$'):
-            #         special = self.take()
-            #     if self.next().of('Identifier'):
-            #         name = self.take()
+
             else:
                 print(self.take().loc(), 'warning: unexpected token')
 
@@ -278,8 +273,7 @@ class Namespace(Node):
             old = self.take()
             if self.next().of('Identifier'):
                 new = self.take()
-                if self.next().has(';'):
-                    self.take()  # ';'
+                if self.take_specific('Punctuator', ';'):
                     self.aliases.append(Alias([old], new, self))
                     return
 
@@ -304,34 +298,28 @@ class Namespace(Node):
             name = self.take()
             if self.take_specific('Punctuator', '{'):
                 elements: list[EnumElement] = []
+                prev_value = -1
                 while True:
                     if (next := self.next()).of('Identifier'):
                         element_name = self.take()
                         if self.take_specific('Punctuator', ','):
                             elements.append(EnumElement(element_name))
+                            prev_value += 1
                         elif self.take_specific('Punctuator', '}'):
                             elements.append(EnumElement(element_name))
                             break
-                        elif self.take_specific('Punctuator', '('):
-                            held_type = ''
-                            while True:
-                                if (next := self.next()).of('Identifier') or next.of('Type'):
-                                    held_type += self.take().string
-                                    if self.take_specific('Operator', '.'):
-                                        held_type += '.'
-                                else:
-                                    if not held_type or not self.take_specific('Punctuator', ')'):
-                                        raise ParserError(next, 'unexpected token in enum')
-                                    if self.take_specific('Punctuator', ','):
-                                        pass
-                                    elements.append(EnumElement(element_name, held_type))
-                                    break
+                        elif self.take_specific('Operator', '='):
+                            if self.next().of('Number'):
+                                value = int(self.take().string)
+                                prev_value = value
+                                elements.append(EnumElement(element_name, value))
+                            self.take_specific('Punctuator', ',')
                         else:
                             raise ParserError(next, 'unexpected token in enum')
                     elif self.take_specific('Punctuator', '}'):
                         break
                     else:
-                        raise ParserError(next, 'unexpected token')
+                        raise ParserError(next, 'unexpected token in enum')
 
                 self.enums.append(Enum(elements, name, self))
                 return
@@ -349,8 +337,7 @@ class Namespace(Node):
 
         if self.next().of('Identifier'):
             name = self.take()
-            if self.next().has('{'):
-                self.take()  # '{'
+            if self.take_specific('Puntuator', '{'):
                 stack = 1
                 tokens = []
                 while stack:
