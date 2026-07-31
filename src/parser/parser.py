@@ -187,6 +187,7 @@ class Namespace(Node):
     interfaces:   list[Interface]
     namespaces:   list[Namespace]
     structs:      list[Struct]
+    unions:       list[Union]
 
     def __init__(self, tokens: list[Token], name: Identifier | str, parent: Namespace = None):
         super().__init__(tokens, name, parent)
@@ -199,6 +200,7 @@ class Namespace(Node):
         self.interfaces   = []
         self.namespaces   = []
         self.structs      = []
+        self.unions       = []
 
         if self.name == 'global':
             self.namespaces.append(StdNamespace(self))
@@ -232,6 +234,8 @@ class Namespace(Node):
                 #         case 'struct':
                 #             self.make_struct()
                 #             pass
+                # elif next.has('union'):
+                #     self.make_union()
                 else:
                     print(self.take().loc(), 'warning: unexpected special keyword')
 
@@ -355,6 +359,9 @@ class Namespace(Node):
     def make_struct(self):
         ...
 
+    def make_union(self):
+        ...
+
 
 class BareNamespace(Namespace):
     def __init__(self, name: Identifier | str, parent: Namespace = None):
@@ -449,3 +456,8 @@ class Type(Identifier):
             raise ParserError(token, 'expected Type')
         self.token = token
         self.name = token.string
+
+
+@dataclass
+class Union(Node):
+    pass

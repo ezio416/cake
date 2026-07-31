@@ -29,10 +29,10 @@ struct S {
     N.i j = -42e1;
 }
 
-union U {
+union U<i32 i, E e, N.i j> {
     a,
-    b(i32),
-    c(E),
-    d(N.i),
+    b(i),
+    c(e),
+    d(j),
     e
 }
