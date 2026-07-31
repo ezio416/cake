@@ -6,10 +6,10 @@ from .util import LanguageError, debug_header
 
 
 DIGIT_SYMBOLS      = '0123456789'
-IDENTIFIER_SYMBOLS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
+IDENTIFIER_SYMBOLS = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
 LOGIC_KEYWORDS     = 'and', 'nand', 'nor', 'not', 'or', 'xnor', 'xor'
 NUMBER_SYMBOLS     = "'-.0123456789ABCDEFabcdefox"
-OPERATOR_SYMBOLS   = '!$%&*+-./:<=>?^|@#'
+OPERATOR_SYMBOLS   = '!%&*+-./:<=>?^|@#'
 PUNCTUATOR_SYMBOLS = r'"\'(),;[]{}'
 SPECIAL_KEYWORDS   = 'abstract', 'actually', 'alias', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch',\
     'class', 'continue', 'default', 'del', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from',\
@@ -164,6 +164,11 @@ class Lexer:
                             self.tokens.append(Token('Type', line))
                             file.tokens.append(self.tokens[-1])
                         else:
+                            dollars = taken.count('$')
+                            if dollars > 1:
+                                raise LexerError(f'too many of "$" in identifier {line.loc()}: "{line.next()}"')
+                            if dollars and not taken.startswith('$'):
+                                raise LexerError(f'special identifier must start with "$" {line.loc()}: "{line.next()}"')
                             self.tokens.append(Token('Identifier', line))
                             file.tokens.append(self.tokens[-1])
 

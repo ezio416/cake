@@ -131,8 +131,8 @@ exp_expr = expression [ "**" mult_expr ] ;
 
 # names
 
-accessor = ( id | "." ) { "." [ "$" ] accessor | function_args | "[" expression "]" } ;
-id = ( [A-Za-z] | "_" ) { [0-9A-Za-z] | "_" } ;
+accessor = ( id | "." id ) { "." accessor | function_args | "[" expression "]" } ;
+id = [ "$" ] ( [A-Za-z] | "_" ) { [0-9A-Za-z] | "_" } ;
 
 # types
 
@@ -163,4 +163,4 @@ dig_bin = [0-1] ;
 
 range = number ".." [ "=" ] number ;
 
-string = '"' { ? UTF-8 character ? } '"' ;
+string = [ "#" ] '"' { ? UTF-8 character ? } '"' ;
