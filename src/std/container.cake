@@ -17,7 +17,7 @@ namespace std {
                 return none;
             }
 
-            { ... }  // forbidden expression
+            ...  // forbidden expression
         }
 
         mut option<type&> $replace(i64 index, type& item) {
@@ -29,7 +29,7 @@ namespace std {
                 return none;
             }
 
-            { ... }  // forbidden expression
+            ...  // forbidden expression
         }
 
         option<array<type&>> $slice(range<i64>& r) { ... }  // forbidden expression
@@ -64,7 +64,7 @@ namespace std {
                 return none;
             }
 
-            { ... }  // forbidden expression
+            ...  // forbidden expression
         }
 
         mut option<array<type&>> take_slice(range<i64>& r) { ... }  // forbidden expression
@@ -100,7 +100,7 @@ namespace std {
         }
 
         mut void resize(u64 size) {
-            { ... }  // forbidden expression
+            ...  // forbidden expression
 
             $capacity = size;  // forbidden special write
         }

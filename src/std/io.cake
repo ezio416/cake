@@ -23,7 +23,7 @@ namespace std.io {
         string path;
 
         override option<file> $enter() {
-            { ... }  // forbidden expression
+            ...  // forbidden expression
 
             return this;
         }
@@ -42,7 +42,7 @@ namespace std.io {
             return error("dir not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result copy_file(string& path, string& target) {
@@ -50,7 +50,7 @@ namespace std.io {
             return error("file not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result create_dir(string& path) {
@@ -58,7 +58,7 @@ namespace std.io {
             return error("dir already exists: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result create_file(string& path) {
@@ -83,7 +83,7 @@ namespace std.io {
             return error("dir not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result delete_file(string& path) {
@@ -91,7 +91,7 @@ namespace std.io {
             return error("file not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     bool   dir_exists(string& path)   { ... }  // forbidden expression
@@ -104,7 +104,7 @@ namespace std.io {
             return error("dir not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result move_dir(string& path, string& target) {
@@ -112,7 +112,7 @@ namespace std.io {
             return error("dir not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result move_file(string& path, string& target) {
@@ -120,7 +120,7 @@ namespace std.io {
             return error("file not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     result<file> open(string& path, i64 mode = mode.read) {
@@ -128,7 +128,7 @@ namespace std.io {
             return error("file not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 
     void print(type& t) {
@@ -150,6 +150,6 @@ namespace std.io {
             return error("dir not found: " + path);
         }
 
-        { ... }  // forbidden expression
+        ...  // forbidden expression
     }
 }
