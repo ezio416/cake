@@ -37,10 +37,9 @@ class Node(ABC):
             self.index += 1
         return token
 
-    def take_specific(self, of: str, has: str) -> tuple[Token]:
+    def take_specific(self, of: str, has: str) -> Token:
         if self.next().of(of) and self.next().has(has):
-            return self.take(),
-        return ()
+            return self.take()
 
 
 @dataclass
@@ -237,10 +236,12 @@ class Namespace(Node):
                 # elif next.has('union'):
                 #     self.make_union()
                 else:
-                    print(self.take().loc(), 'warning: unexpected special keyword')
+                    token = self.take()
+                    print(token.loc(), f'warning: unexpected special keyword: {token}')
 
             else:
-                print(self.take().loc(), 'warning: unexpected token')
+                token = self.take()
+                print(token.loc(), f'warning: unexpected token: {token}')
 
     def __getitem__(self, key: str) -> Node | None:
         for a in self.aliases:
