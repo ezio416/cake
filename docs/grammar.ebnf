@@ -49,12 +49,13 @@ compound_stmt =
 	| with_stmt
 	;
 
-class_def = [ base_modifiers ] "class" id [ inheritance ] "{" { member_def | method_def } "}" ;
+class_def = [ base_modifiers ] "class" id [ inheritance ] "{" { inheritance_block } { member_def | method_def } "}" ;
 base_modifiers = "abstract" | "final" ;
 inheritance = ":" { type "," } type [ "," ] ;
+inheritance_block = type "{" { member_def | method_def } "}" ;
 member_def = member_modifiers decl_stmt ;
 method_def = member_modifiers function_type [ "$" ] id function_params ( block | ";" ) ;
-member_modifiers = "protected" [ "final" ] | [ "private" | "final" ] [ "override" ] ;
+member_modifiers = "private" | "protected" [ "final" ] ;
 
 do_stmt = "do" block [ "while" paren_expr ";" ] ;
 
@@ -76,11 +77,11 @@ function_arg = [ id "=" ] expression ;
 
 if_stmt = "if" paren_expr block { "else" "if" paren_expr block } [ "else" block ] ;
 
-interface_def = [ base_modifiers ] "interface" id [ inheritance ] "{" { method_def } "}" ;
+interface_def = [ base_modifiers ] "interface" id [ inheritance ] "{" { inheritance_block } { method_def } "}" ;
 
 namespace_def = "namespace" id "{" [ program ] "}" ;
 
-struct_def = [ base_modifiers ] "struct" id [ inheritance ] "{" { member_def } "}" ;
+struct_def = [ base_modifiers ] "struct" id [ inheritance ] "{" { inheritance_block } { member_def } "}" ;
 
 switch_stmt = "switch" paren_expr "{" { "case" "(" ( id | num_int ) ")" block } [ "default" block ] "}" ;
 
