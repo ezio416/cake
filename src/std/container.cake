@@ -8,11 +8,11 @@
 
 namespace std {
     class array : container {
-        option<type&> $at(i64 index) {
+        option $at(i64 index) {
             return $at(signed_index(index));
         }
 
-        option<type&> $at(u64 index) {
+        option $at(u64 index) {
             if (index >= $length) {
                 return none;
             }
@@ -20,11 +20,11 @@ namespace std {
             ...  // forbidden expression
         }
 
-        mut option<type&> $replace(i64 index, type& item) {
+        mut option $replace(i64 index, type& item) {
             return $replace(signed_index(index), item);
         }
 
-        mut option<type&> $replace(u64 index, type& item) {
+        mut option $replace(u64 index, type& item) {
             if (index >= $length) {
                 return none;
             }
@@ -32,34 +32,84 @@ namespace std {
             ...  // forbidden expression
         }
 
-        option<array<type&>> $slice(range<i64>& r) { ... }  // forbidden expression
-        option<array<type&>> $slice(range<u64>& r) { ... }  // forbidden expression
+        result<array> $slice(range<i64>& r) {
+            return $slice(r as range<u64>);
+        }
 
-        array<u64> every_index_of(type& item)  { ... }  // forbidden expression
-        bool       exists(type& item)          { ... }  // forbidden expression
+        result<array> $slice(range<u64>& r) {
+            if (r.start >= r.end or r.end >= $length) {
+                return error("invalid range");
+            }
 
-        option<u64> index_of(type& item)      { ... }  // forbidden expression
-        mut void    insert(type& item)        { ... }  // forbidden expression
-        option<u64> last_index_of(type& item) { ... }  // forbidden expression
-        mut void    reverse()                 { ... }  // forbidden expression
+            ...  // forbidden expression
+        }
+
+        array<u64>  every_index_of(type& item)  { ... }  // forbidden expression
+        bool        exists(type& item)          { ... }  // forbidden expression
+        option<u64> index_of(type& item)       { ... }  // forbidden expression
+        mut void    insert(type& item)         { ... }  // forbidden expression
+        option<u64> last_index_of(type& item)  { ... }  // forbidden expression
+        mut void    reverse()                  { ... }  // forbidden expression
 
         u64 signed_index(i64 index) {
             return index < 0 ? $length + index : index as u64;
         }
 
-        mut void sort(<i8><type&, type&>& f) { ... }  // forbidden expression
-        mut void sort_asc()                  { ... }  // forbidden expression
-        mut void sort_asc(range<i64>& r)     { ... }  // forbidden expression
-        mut void sort_asc(range<u64>& r)     { ... }  // forbidden expression
-        mut void sort_desc()                 { ... }  // forbidden expression
-        mut void sort_desc(range<i64>& r)    { ... }  // forbidden expression
-        mut void sort_desc(range<u64>& r)    { ... }  // forbidden expression
+        mut result sort(sort_func& f) {
+            if ($length < 2) {
+                return error("array has < 2 elements");
+            }
 
-        mut option<type&> take(i64 index) {
+            ...  // forbidden expression
+        }
+
+        mut result sort_asc() {
+            if ($length < 2) {
+                return error("array has < 2 elements");
+            }
+
+            ...  // forbidden expression
+        }
+
+        mut result sort_asc(range<i64>& r) {
+            return sort_asc(r as range<u64>);
+        }
+
+        mut result sort_asc(range<u64>& r) {
+            if ($length < 2) {
+                return error("array has < 2 elements");
+            }
+
+            if (r.start >= r.end or r.end >= $length) {
+                return error("invalid range");
+            }
+
+            ...  // forbidden expression
+        }
+
+        mut result sort_desc() { ... }  // forbidden expression
+
+        mut result sort_desc(range<i64>& r) {
+            return sort_desc(r as range<u64>);
+        }
+
+        mut result sort_desc(range<u64>& r) {
+            if ($length < 2) {
+                return error("array has < 2 elements");
+            }
+
+            if (r.start >= r.end or r.end >= $length) {
+                return error("invalid range");
+            }
+
+            ...  // forbidden expression
+        }
+
+        mut option take(i64 index) {
             return take(signed_index(index));
         }
 
-        mut option<type&> take(u64 index) {
+        mut option take(u64 index) {
             if (index >= $length) {
                 return none;
             }
@@ -67,8 +117,17 @@ namespace std {
             ...  // forbidden expression
         }
 
-        mut option<array<type&>> take_slice(range<i64>& r) { ... }  // forbidden expression
-        mut option<array<type&>> take_slice(range<u64>& r) { ... }  // forbidden expression
+        mut result<array> take_slice(range<i64>& r) {
+            return $slice(r as range<u64>);
+        }
+
+        mut result<array> take_slice(range<u64>& r) {
+            if (r.start >= r.end or r.end >= $length) {
+                return error("invalid range");
+            }
+
+            ...  // forbidden expression
+        }
     }
 
     class bytes : array {
