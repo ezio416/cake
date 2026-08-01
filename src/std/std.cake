@@ -19,14 +19,18 @@ namespace std {
     }
 
     class bool : primitive {
-        override u8 $size = 1;  // forbidden special override declaration
+        castable {
+            option<integer> $as() {
+                return this ? 1 : 0;
+            }
 
-        override option<integer> $as() {
-            return this ? 1 : 0;
+            option<string> $as() {
+                return this ? "true" : "false";
+            }
         }
 
-        override option<string> $as() {
-            return this ? "true" : "false";
+        type {
+            u8 $size = 1;  // forbidden special declaration
         }
     }
 
@@ -49,8 +53,10 @@ namespace std {
     }
 
     class void : primitive {
-        final override option $as() {
-            return none;
+        castable {
+            final option $as() {
+                return none;
+            }
         }
     }
 }

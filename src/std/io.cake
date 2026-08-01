@@ -19,18 +19,20 @@ namespace std.io {
     }
 
     class file : context_manager {
+        context_manager {
+            option<file> $enter() {
+                ...  // forbidden expression
+
+                return this;
+            }
+
+            void $exit() {
+                close();
+            }
+        }
+
         mode   mode;
         string path;
-
-        override option<file> $enter() {
-            ...  // forbidden expression
-
-            return this;
-        }
-
-        override void $exit() {
-            close();
-        }
 
         void           close()      { ... }  // forbidden expression
         result<string> read()       { ... }  // forbidden expression

@@ -7,6 +7,8 @@
 //     - using an ellipses for deferred implementation "{ ... }"
 
 namespace std {
+    alias <i8><type&, type&> sort_func;
+
     class array : container {
         option $at(i64 index) {
             return $at(signed_index(index));
@@ -131,8 +133,11 @@ namespace std {
     }
 
     class bytes : array {
-        u64          $index;  // forbidden special declaration
-        override @u8 $type;   // forbidden special override declaration
+        array {
+            @u8 $type;  // forbidden special declaration
+        }
+
+        u64 $index;  // forbidden special declaration
 
         bool finished() {
             return $index == $capacity;
@@ -181,6 +186,12 @@ namespace std {
     }
 
     abstract class container {
+        type {
+            option<bool> $as() {
+                return $length > 0;
+            }
+        }
+
         u64   $capacity;  // forbidden special declaration
         u64   $length;    // forbidden special declaration
         @type $type;      // forbidden special declaration
@@ -190,7 +201,6 @@ namespace std {
         }
 
         mut void clear();
-        bool     is_empty();
     }
 
     class dict : set {
@@ -203,21 +213,25 @@ namespace std {
     abstract class keyed_container : container { }
 
     class range : container {
+        container {
+            mut void $init<@number T>(number start, number end, bool inclusive = false) {
+                $start = start;          // forbidden special write
+                $end = end;              // forbidden special write
+                $inclusive = inclusive;  // forbidden special write
+            }
+        }
+
         number $end;        // forbidden special declaration
         bool   $inclusive;  // forbidden special declaration
         number $start;      // forbidden special declaration
-
-        override mut void $init<@number T>(number start, number end, bool inclusive = false) {
-            $start = start;          // forbidden special write
-            $end = end;              // forbidden special write
-            $inclusive = inclusive;  // forbidden special write
-        }
     }
 
     class set : keyed_container { }
 
     class string : array {
-        override @char $type;  // forbidden special override declaration
+        container {
+            @char $type;  // forbidden special declaration
+        }
 
         bool          ends_with(string& s)                                 { ... }  // forbidden expression
         bool          is_alpha()                                           { ... }  // forbidden expression

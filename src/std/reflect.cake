@@ -24,6 +24,12 @@ namespace std.reflect {
     }
 
     class Function : container, Node {
+        castable {
+            option<json.value> $as() {
+                return none;
+            }
+        }
+
         array<@type> $params;  // forbidden special declaration
 
         void $call() { ... }  // forbidden expression
@@ -32,10 +38,6 @@ namespace std.reflect {
             super.$init<T>();
             $params = P;                                           // forbidden special write
             $name += #"<{", ".join($params as array<string&>)}>";  // forbidden special write
-        }
-
-        override option<json.value> $as() {
-            return none;
         }
     }
 

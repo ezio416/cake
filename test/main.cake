@@ -1,7 +1,7 @@
 alias i32 int;
 
 class C : I, S {
-    override void $init() {
+    void $init() {
         std.print(4);
     }
 }
