@@ -29,10 +29,13 @@ struct S {
     N.i j = -42e1;
 }
 
-union U<i32 i, E e, N.i j> {
+union U<i32 i, E e, N.i j, std.array<std.dict<N.i>> s, @type T> {
     a,
     b(i),
     c(e),
     d(j),
-    e
+    e(s),
+    f,
+    g(T),
+    h,
 }

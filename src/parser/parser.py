@@ -364,6 +364,40 @@ class Namespace(Node):
     def make_struct(self):
         ...
 
+    def make_type(self) -> list[Token]:
+        tokens: list[Token] = []
+
+        if (metatype := self.take_specific('Operator', '@')):
+            tokens.append(metatype)
+
+        stack = 0
+
+        while True:
+            if self.next.of('Identifier', 'Type'):
+                tokens.append(self.take())
+                if (dot := self.take_specific('Operator', '.')):
+                    tokens.append(dot)
+                elif (left := self.take_specific('Operator', '<')):
+                    tokens.append(left)
+                    stack += 1
+                elif (metatype := self.take_specific('Operator', '@')):
+                    tokens.append(metatype)
+                elif stack and self.next.of('Operator') and self.next.has('>'):
+                    while (right := self.take_specific('Operator', '>')):
+                        tokens.append(right)
+                        stack -= 1
+                    if not stack:
+                        return tokens
+                else:
+                    break
+            else:
+                break
+
+        if stack:
+            raise ParserError(self.next, 'expected ">"')
+
+        return tokens
+
     def make_union(self):
         self.take()  # 'union'
 
@@ -374,19 +408,7 @@ class Namespace(Node):
                 ids = set()
                 types = set()
                 while True:
-                    type_parts: list[Token] = []
-                    if (metatype := self.take_specific('Operator', '@')):
-                        type_parts.append(metatype)
-                    while True:
-                        if self.next.of('Identifier', 'Type'):
-                            type_parts.append(self.take())
-                            if (dot := self.take_specific('Operator', '.')):
-                                type_parts.append(dot)
-                            else:
-                                break
-                        else:
-                            break
-                    if type_parts:
+                    if (type_parts := self.make_type()):
                         if type_parts[-1].has('.'):
                             raise ParserError(type_parts[-1], 'expected identifier')
                         param_type = ''.join([n.string for n in type_parts])
@@ -566,8 +588,6 @@ class Union(Node):
                     else:
                         raise ParserError(self.next, 'expected identifier')
 
-        pass
-
     def __repr__(self) -> str:
         return f'Union["{self.path}" <{', '.join([p.__repr__() for p in self.params])}> <{', '.join([e.__repr__() for e in self.elements])}>]'
 
@@ -579,6 +599,8 @@ class UnionElement(Node):
     def __init__(self, name: Token, parent: Union, param: UnionParam = None):
         super().__init__([], Identifier(name), parent)
         self.param = param
+        if self.param:
+            self.param.element = self
 
     def __repr__(self) -> str:
         return f'{self.name}{f'({self.param.name})' if self.param else ''}'
@@ -586,12 +608,13 @@ class UnionElement(Node):
 
 @dataclass
 class UnionParam(Node):
-    element: UnionElement
+    element: UnionElement | None
     used:    bool
 
     def __init__(self, tokens: list[Token], name: Token):
         super().__init__(tokens, Identifier(name))
-        self.used = False
+        self.element = None
+        self.used    = False
 
     def __repr__(self) -> str:
         return f'{''.join([t.string for t in self.tokens])} {self.name}'
