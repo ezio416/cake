@@ -51,8 +51,8 @@ class_def = [ base_modifiers ] "class" id [ inheritance ] "{" { inheritance_bloc
 base_modifiers = "abstract" | "final" ;
 inheritance = ":" { type "," } type [ "," ] ;
 inheritance_block = type "{" { member_def | method_def } "}" ;
-member_def = member_modifiers decl_stmt ;
-method_def = member_modifiers function_return [ "$" ] id "(" [ function_params ] ")" ( block | ";" ) ;
+member_def = [ member_modifiers ] decl_stmt ;
+method_def = [ member_modifiers ] [ "property" ] function_return [ "$" ] id "(" [ function_params ] ")" ( block | ";" ) ;
 member_modifiers = "private" | "protected" [ "final" ] ;
 
 do_stmt = "do" block [ "while" paren_expr ";" ] ;

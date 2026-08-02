@@ -13,8 +13,8 @@ OPERATOR_SYMBOLS   = '!#%&*+-./:<=>?@^|'
 PUNCTUATOR_SYMBOLS = r'"\'(),;[]{}'
 SPECIAL_KEYWORDS   = 'abstract', 'actually', 'alias', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch',\
     'class', 'continue', 'default', 'del', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from',\
-    'if', 'import', 'in', 'interface', 'is', 'mut', 'namespace', 'of', 'private', 'protected', 'return', 'static',\
-    'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
+    'if', 'import', 'in', 'interface', 'is', 'mut', 'namespace', 'of', 'private', 'property', 'protected', 'return',\
+    'static', 'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
 TYPE_KEYWORDS      = 'auto', 'bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'void'
 UNUSED_SYMBOLS     = '`~'
 
@@ -146,7 +146,7 @@ class Lexer:
 
                     elif line.next() in PUNCTUATOR_SYMBOLS:
                         line.take()
-                        self.tokens.append(Token('Punctuator', line))
+                        self.tokens.append(Token('Operator', line))
                         file.tokens.append(self.tokens[-1])
 
                     elif line.next() in IDENTIFIER_SYMBOLS:
@@ -176,7 +176,7 @@ class Lexer:
                             f'unexpected symbol {line.loc()}: "{line.next()}"'
                         )
 
-            self.tokens.append(Token('Punctuator', line))
+            self.tokens.append(Token('EOF', line))
             file.tokens.append(self.tokens[-1])
 
     def write_debug(self) -> None:

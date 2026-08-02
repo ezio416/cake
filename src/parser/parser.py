@@ -14,6 +14,14 @@ class Node(ABC):
     tokens: list[Token]
 
     @property
+    def last(self) -> Token:  # TODO remove lookbehind
+        return self.tokens[self.index - 1] if self.index > 0 else None
+
+    @property
+    def next(self) -> Token:
+        return self.tokens[self.index]
+
+    @property
     def path(self) -> str:
         if self.name == 'global':
             return 'global'
@@ -28,17 +36,14 @@ class Node(ABC):
 
         self.index  = 0
 
-    def next(self) -> Token:
-        return self.tokens[self.index]
-
     def take(self) -> Token:
-        token = self.next()
-        if not (token.of('Punctuator') and token.has('EOF')):
+        token = self.next
+        if not (token.of('EOF')):
             self.index += 1
         return token
 
     def take_specific(self, of: str, has: str) -> Token:
-        if self.next().of(of) and self.next().has(has):
+        if self.next.of(of) and self.next.has(has):
             return self.take()
 
 
@@ -207,7 +212,7 @@ class Namespace(Node):
         if not self.tokens:
             return
 
-        while not ((next := self.next()).of('Punctuator') and next.has('EOF')):
+        while not ((next := self.next).of('EOF')):
             if next.of('Special'):
                 if next.has('alias'):
                     self.make_alias()
@@ -233,8 +238,8 @@ class Namespace(Node):
                 #         case 'struct':
                 #             self.make_struct()
                 #             pass
-                # elif next.has('union'):
-                #     self.make_union()
+                elif next.has('union'):
+                    self.make_union()
                 else:
                     token = self.take()
                     print(token.loc(), f'warning: unexpected special keyword: {token}')
@@ -274,22 +279,19 @@ class Namespace(Node):
         self.take()  # 'alias'
 
         old = []
-        if self.next().of('Identifier', 'Type'):
+        if self.next.of('Identifier', 'Type'):
             old = self.take()
-            if self.next().of('Identifier'):
+            if self.next.of('Identifier'):
                 new = self.take()
-                if self.take_specific('Punctuator', ';'):
+                if self.take_specific('Operator', ';'):
                     self.aliases.append(Alias([old], new, self))
                     return
 
-        raise ParserError(self.next(), 'bad alias statement')
+        raise ParserError(self.next, 'bad alias statement')
 
     def make_class(self):
-        if self.next().of('Special') and self.next().has('abstract', 'final'):
+        if self.next.of('Special') and self.next.has('abstract', 'final'):
             modifier = self.take()
-
-        if self.next().of('Special') and self.next().has('class'):
-            self.take()
 
         ...
 
@@ -299,29 +301,29 @@ class Namespace(Node):
     def make_enum(self):
         self.take()  # 'enum'
 
-        if self.next().of('Identifier'):
+        if self.next.of('Identifier'):
             name = self.take()
-            if self.take_specific('Punctuator', '{'):
+            if self.take_specific('Operator', '{'):
                 elements: list[EnumElement] = []
                 prev_value = -1
                 while True:
-                    if (next := self.next()).of('Identifier'):
+                    if (next := self.next).of('Identifier'):
                         element_name = self.take()
-                        if self.take_specific('Punctuator', ','):
+                        if self.take_specific('Operator', ','):
                             elements.append(EnumElement(element_name))
                             prev_value += 1
-                        elif self.take_specific('Punctuator', '}'):
+                        elif self.take_specific('Operator', '}'):
                             elements.append(EnumElement(element_name))
                             break
                         elif self.take_specific('Operator', '='):
-                            if self.next().of('Number'):
+                            if self.next.of('Number'):
                                 value = int(self.take().string)
                                 prev_value = value
                                 elements.append(EnumElement(element_name, value))
-                            self.take_specific('Punctuator', ',')
+                            self.take_specific('Operator', ',')
                         else:
                             raise ParserError(next, 'unexpected token in enum')
-                    elif self.take_specific('Punctuator', '}'):
+                    elif self.take_specific('Operator', '}'):
                         break
                     else:
                         raise ParserError(next, 'unexpected token in enum')
@@ -329,7 +331,7 @@ class Namespace(Node):
                 self.enums.append(Enum(elements, name, self))
                 return
 
-        raise ParserError(self.next(), 'bad enum definition')
+        raise ParserError(self.next, 'bad enum definition')
 
     def make_function(self):
         ...
@@ -340,28 +342,83 @@ class Namespace(Node):
     def make_namespace(self):
         self.take()  # 'namespace'
 
-        if self.next().of('Identifier'):
+        if self.next.of('Identifier'):
             name = self.take()
-            if self.take_specific('Puntuator', '{'):
+            if self.take_specific('Operator', '{'):
                 stack = 1
                 tokens = []
                 while stack:
-                    next = self.next()
-                    if next.of('Punctuator'):
-                        if next.has('EOF'):
-                            raise ParserError(next, 'unexpected EOF')
-                        elif next.has('{'):
+                    next = self.next
+                    if next.of('EOF'):
+                        raise ParserError(next, 'unexpected EOF')
+                    if next.of('Operator'):
+                        if next.has('{'):
                             stack += 1
                         elif next.has('}'):
                             stack -= 1
                     tokens.append(self.take())
-                self.namespaces.append(Namespace(tokens + [Token('Punctuator', None)], Identifier(name), self))
+                self.namespaces.append(Namespace(tokens + [Token('EOF', None)], Identifier(name), self))
+        else:
+            raise ParserError(self.next, 'expected identifier')
 
     def make_struct(self):
         ...
 
     def make_union(self):
-        ...
+        self.take()  # 'union'
+
+        if self.next.of('Identifier'):
+            union_name = self.take()
+            params = []
+            if self.take_specific('Operator', '<'):
+                ids = set()
+                types = set()
+                while True:
+                    type_parts: list[Token] = []
+                    if (metatype := self.take_specific('Operator', '@')):
+                        type_parts.append(metatype)
+                    while True:
+                        if self.next.of('Identifier', 'Type'):
+                            type_parts.append(self.take())
+                            if (dot := self.take_specific('Operator', '.')):
+                                type_parts.append(dot)
+                            else:
+                                break
+                        else:
+                            break
+                    if type_parts:
+                        if type_parts[-1].has('.'):
+                            raise ParserError(type_parts[-1], 'expected identifier')
+                        param_type = ''.join([n.string for n in type_parts])
+                        if param_type in types:
+                            raise ParserError(type_parts, 'duplicate union parameter type')
+                        types.add(param_type)
+                        if self.next.of('Identifier'):
+                            id = self.take()
+                            if id.string in ids:
+                                raise ParserError(id, 'duplicate union parameter name')
+                            ids.add(id.string)
+                            params.append(UnionParam(type_parts, id))
+                            self.take_specific('Operator', ',')
+                        else:
+                            raise ParserError(self.next, 'expected identifier')
+                    elif self.take_specific('Operator', '>'):
+                        break
+                if not self.last.of('Operator') or not self.last.has('>'):
+                    raise ParserError(self.last, 'expected ">"')
+
+            if self.take_specific('Operator', '{'):
+                tokens = []
+                while not self.take_specific('Operator', '}'):
+                    if self.next.of('EOF'):
+                        raise ParserError(self.next, 'unexpected EOF')
+                    tokens.append(self.take())
+                self.unions.append(Union(params, tokens, union_name, self))
+                return
+            else:
+                raise ParserError(self.next, 'expected "{"')
+
+        raise ParserError(self.next, 'bad union definition')
 
 
 class BareNamespace(Namespace):
@@ -422,6 +479,7 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens')
         self.global_ns = Namespace(self.tokens, 'global')
+        ...  # TODO second pass
 
     def take(self) -> Token:
         token = self.next()
@@ -446,8 +504,11 @@ class Parser:
 
 
 class ParserError(LanguageError):
-    def __init__(self, token: Token, *args):
-        super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
+    def __init__(self, token: Token | list[Token], *args):
+        if type(token) is Token:
+            super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
+        else:
+            super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
 
 
 @dataclass
@@ -461,4 +522,76 @@ class Type(Identifier):
 
 @dataclass
 class Union(Node):
-    pass
+    elements: list[UnionElement]
+    params:   list[UnionParam]
+
+    def __init__(self, params: list[UnionParam], tokens: list[Token], name: Token, parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
+        self.params = params
+        for p in self.params:
+            p.parent = self
+
+        self.elements = []
+
+        if not self.tokens:
+            return
+
+        self.tokens.append(Token('EOF', None))
+
+        while not self.next.of('EOF'):
+            if self.next.of('Identifier'):
+                element_name = self.take()
+                if self.next.of('EOF'):
+                    self.elements.append(UnionElement(element_name, self))
+                    return
+                if self.take_specific('Operator', ','):
+                    self.elements.append(UnionElement(element_name, self))
+                elif self.take_specific('Operator', '('):
+                    if self.next.of('Identifier'):
+                        held = self.take()
+                        found = False
+                        for p in self.params:
+                            if held.string == str(p.name):
+                                found = True
+                                if p.used:
+                                    raise ParserError(held, 'union parameter already used')
+                                p.used = True
+                                self.elements.append(UnionElement(element_name, self, p))
+                                break
+                        if not found:
+                            raise ParserError(held, 'union parameter not found')
+                        if not self.take_specific('Operator', ')'):
+                            raise ParserError(self.next, 'expected ")"')
+                        self.take_specific('Operator', ',')
+                    else:
+                        raise ParserError(self.next, 'expected identifier')
+
+        pass
+
+    def __repr__(self) -> str:
+        return f'Union["{self.path}" <{', '.join([p.__repr__() for p in self.params])}> <{', '.join([e.__repr__() for e in self.elements])}>]'
+
+
+@dataclass
+class UnionElement(Node):
+    param: UnionParam
+
+    def __init__(self, name: Token, parent: Union, param: UnionParam = None):
+        super().__init__([], Identifier(name), parent)
+        self.param = param
+
+    def __repr__(self) -> str:
+        return f'{self.name}{f'({self.param.name})' if self.param else ''}'
+
+
+@dataclass
+class UnionParam(Node):
+    element: UnionElement
+    used:    bool
+
+    def __init__(self, tokens: list[Token], name: Token):
+        super().__init__(tokens, Identifier(name))
+        self.used = False
+
+    def __repr__(self) -> str:
+        return f'{''.join([t.string for t in self.tokens])} {self.name}'

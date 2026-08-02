@@ -204,10 +204,10 @@ namespace std {
     }
 
     class dict : set {
-        option<type&> $get(string& key)              { ... }  // forbidden expression
-        mut void      $set(string& key, type& value) { ... }  // forbidden expression
+        option   $get(string& key)              { ... }  // forbidden expression
+        mut void $set(string& key, type& value) { ... }  // forbidden expression
 
-        mut option<type&> take(string& key) { ... }  // forbidden expression
+        mut option take(string& key) { ... }  // forbidden expression
     }
 
     abstract class keyed_container : container { }
