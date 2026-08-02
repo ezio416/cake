@@ -97,26 +97,25 @@ class Lexer:
                                 line.take()
                         else:
                             took = False
-                            for char in '!%/=':
-                                if op == char and line.next() == '=':
+                            if op == '!':
+                                if line.next() in '&^|':
                                     line.take()
-                                    took = True
-                                    break
+                                    if line.next() == '=':
+                                        line.take()
+                                        took = True
+                            if op in '!%/=' and line.next() == '=':
+                                line.take()
+                                took = True
                             if not took:
                                 for char in '&*+-<>^|':
                                     if op == char:
                                         if line.next() == '=':
                                             line.take()
-                                            took = True
                                             break
-                                        if not took and line.next() == char:
+                                        elif line.next() == char:
                                             line.take()
-                                            for char in '&*<>^|':
-                                                if op == char and line.next() == '=':
-                                                    line.take()
-                                                    took = True
-                                                    break
-                                            if took:
+                                            if op in '&*<>^|' and line.next() == '=':
+                                                line.take()
                                                 break
 
                         self.tokens.append(Token('Operator', line))
