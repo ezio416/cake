@@ -101,14 +101,15 @@ expression =
 	"(" assign_stmt ")"
 	| pre_or_post_fixed_accessor
 	| paren_expr
+	| range_expr
 	| ternary_expr
 	| unwrap_expr
-	| accessor
 	| literal
 	| type
 	;
 
 paren_expr = "(" expression ")" ;
+range_expr = expression ".." [ "=" ] expression ;
 ternary_expr = or_expr [ "?" or_expr ":" expression ] ;
 unwrap_expr = expression "?" ;
 
@@ -145,7 +146,7 @@ type_function = "<" type ">" "<" [ { type "," } type [ "," ] ] ">" ;
 
 # literals
 
-literal = bool | char | number | range | string ;
+literal = bool | char | number | string ;
 
 bool = "true" | "false" ;
 
@@ -163,7 +164,5 @@ num_oct = "0o" { dig_oct { "'" } } dig_oct ;
 dig_oct = [0-7] ;
 num_bin = "0b" { dig_bin { "'" } } dig_bin ;
 dig_bin = [0-1] ;
-
-range = number ".." [ "=" ] number ;
 
 string = [ "#" ] '"' { ? UTF-8 character ? } '"' ;
