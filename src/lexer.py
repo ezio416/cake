@@ -107,14 +107,14 @@ class Lexer:
                                 line.take()
                                 took = True
                             if not took:
-                                for char in '&*+-<>^|':
+                                for char in '&*+-^|':  # TODO bitshift/cmp
                                     if op == char:
                                         if line.next() == '=':
                                             line.take()
                                             break
                                         elif line.next() == char:
                                             line.take()
-                                            if op in '&*<>^|' and line.next() == '=':
+                                            if op in '&*^|' and line.next() == '=':  # TODO bitshift/cmp
                                                 line.take()
                                                 break
 
