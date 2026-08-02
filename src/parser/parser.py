@@ -146,18 +146,20 @@ class Function(Node):
 
 @dataclass
 class Identifier:
-    token: Token
+    name:  str
+    token: Token | None
 
     def __init__(self, token: Token):
         if not token.of('Identifier'):
             raise ParserError(token, 'expected Identifier')
         self.token = token
+        self.name  = token.string
 
     def __repr__(self) -> str:
-        return self.token.string
+        return f'Identifier["{self.name}"]'
 
     def __str__(self) -> str:
-        return self.token.string
+        return self.name
 
 
 @dataclass
@@ -364,7 +366,7 @@ class Namespace(Node):
     def make_struct(self):
         ...
 
-    def make_type(self) -> list[Token]:
+    def make_type(self) -> Type:
         tokens: list[Token] = []
 
         if (metatype := self.take_specific('Operator', '@')):
@@ -387,7 +389,7 @@ class Namespace(Node):
                         tokens.append(right)
                         stack -= 1
                     if not stack:
-                        return tokens
+                        break
                 else:
                     break
             else:
@@ -396,7 +398,7 @@ class Namespace(Node):
         if stack:
             raise ParserError(self.next, 'expected ">"')
 
-        return tokens
+        return Type(tokens)
 
     def make_union(self):
         self.take()  # 'union'
@@ -408,7 +410,8 @@ class Namespace(Node):
                 ids = set()
                 types = set()
                 while True:
-                    if (type_parts := self.make_type()):
+                    held_type = self.make_type()
+                    if (type_parts := held_type.tokens):
                         if type_parts[-1].has('.'):
                             raise ParserError(type_parts[-1], 'expected identifier')
                         param_type = ''.join([n.string for n in type_parts])
@@ -420,7 +423,7 @@ class Namespace(Node):
                             if id.string in ids:
                                 raise ParserError(id, 'duplicate union parameter name')
                             ids.add(id.string)
-                            params.append(UnionParam(type_parts, id))
+                            params.append(UnionParam(held_type, id))
                             self.take_specific('Operator', ',')
                         else:
                             raise ParserError(self.next, 'expected identifier')
@@ -535,11 +538,22 @@ class ParserError(LanguageError):
 
 @dataclass
 class Type(Identifier):
-    def __init__(self, token: Token):
-        if not token.of('Type'):
-            raise ParserError(token, 'expected Type')
-        self.token = token
-        self.name = token.string
+    tokens: list[Token]
+
+    def __init__(self, token: Token | list[Token]):
+        if type(token) is Token:
+            if not token.of('Type'):
+                raise ParserError(token, 'expected Type')
+            self.token  = token
+            self.tokens = []
+            self.name   = token.string
+        else:
+            self.token  = None
+            self.tokens = token
+            self.name   = ''.join([t.string for t in self.tokens])
+
+    def __repr__(self) -> str:
+        return f'Type["{self.name}"]'
 
 
 @dataclass
@@ -608,13 +622,15 @@ class UnionElement(Node):
 
 @dataclass
 class UnionParam(Node):
-    element: UnionElement | None
-    used:    bool
+    element:   UnionElement | None
+    held_type: Type
+    used:      bool
 
-    def __init__(self, tokens: list[Token], name: Token):
-        super().__init__(tokens, Identifier(name))
-        self.element = None
-        self.used    = False
+    def __init__(self, held_type: Type, name: Token):
+        super().__init__(held_type.tokens, Identifier(name))
+        self.element   = None
+        self.held_type = held_type
+        self.used      = False
 
     def __repr__(self) -> str:
-        return f'{''.join([t.string for t in self.tokens])} {self.name}'
+        return f'{self.held_type} {self.name}'
