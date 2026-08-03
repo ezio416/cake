@@ -36,15 +36,20 @@ class Node(ABC):
 
         self.index  = 0
 
+    def last_of_has(self, of: str, has: str) -> bool:
+        return self.last.of(of) and self.last.has(has) if self.last else False
+
+    def next_of_has(self, of: str, has: str) -> bool:
+        return self.next.of(of) and self.next.has(has)
+
     def take(self) -> Token:
         token = self.next
         if not (token.of('EOF')):
             self.index += 1
         return token
 
-    def take_specific(self, of: str, has: str) -> Token:
-        if self.next.of(of) and self.next.has(has):
-            return self.take()
+    def take_specific(self, of: str, has: str) -> Token | None:
+        return self.take() if self.next_of_has(of, has) else None
 
 
 @dataclass
@@ -60,41 +65,41 @@ class Inheritable(Node, ABC):
         self.inheritance = []
 
 
-@dataclass
-class Accessor(Node):
-    parts: list[Identifier | Type]
+# @dataclass
+# class Accessor(Node):
+#     parts: list[Identifier | Type]
 
-    def __init__(self, tokens: list[Token] = [], parent: Node = None):
-        super().__init__(tokens, parent=parent)
+#     def __init__(self, tokens: list[Token] = [], parent: Node = None):
+#         super().__init__(tokens, parent=parent)
 
-        self.parts = []
+#         self.parts = []
 
-        for token in self.tokens:
-            if token.of('Identifier', 'Type'):
-                self.name += token.string
-                if token.of('Identifier'):
-                    self.parts.append(Identifier(token))
-                else:
-                    self.parts.append(Type(token))
-            elif token.of('Operator') and token.has('.'):
-                self.name += token.string
-            else:
-                raise ParserError(token, 'unexpected token in accessor')
+#         for token in self.tokens:
+#             if token.of('Identifier', 'Type'):
+#                 self.name += token.string
+#                 if token.of('Identifier'):
+#                     self.parts.append(Identifier(token))
+#                 else:
+#                     self.parts.append(Type(token))
+#             elif token.of('Operator') and token.has('.'):
+#                 self.name += token.string
+#             else:
+#                 raise ParserError(token, 'unexpected token in accessor')
 
 
 @dataclass
 class Alias(Node):
-    old: Accessor
+    old: Type
 
-    def __init__(self, old: list[Token], name: Token, parent: Node):
+    def __init__(self, old: Type, name: Token, parent: Node):
         if not old or not name:
             raise LanguageError('alias missing token')
 
         super().__init__(old, Identifier(name), parent)
-        self.old = Accessor(old, parent.parent)
+        self.old = old
 
     def __repr__(self) -> str:
-        return f'Alias["{self.old.path}" -> "{self.path}"]'
+        return f'Alias["{self.old.name}" -> "{self.path}"]'
 
 
 @dataclass
@@ -193,6 +198,7 @@ class Namespace(Node):
     interfaces:   list[Interface]
     namespaces:   list[Namespace]
     structs:      list[Struct]
+    unexpected:   list[Token]
     unions:       list[Union]
 
     def __init__(self, tokens: list[Token], name: Identifier | str, parent: Namespace = None):
@@ -206,6 +212,7 @@ class Namespace(Node):
         self.interfaces   = []
         self.namespaces   = []
         self.structs      = []
+        self.unexpected   = []
         self.unions       = []
 
         if self.name == 'global':
@@ -243,12 +250,16 @@ class Namespace(Node):
                 elif next.has('union'):
                     self.make_union()
                 else:
-                    token = self.take()
-                    print(token.loc(), f'warning: unexpected special keyword: {token}')
+                    self.unexpected.append(self.take())
+
+            elif next.of('Operator') and next.has('}'):
+                self.take()
 
             else:
-                token = self.take()
-                print(token.loc(), f'warning: unexpected token: {token}')
+                self.unexpected.append(self.take())
+
+        if self.unexpected:
+            print(f'namespace "{self.name}" has {len(self.unexpected)} unexpected tokens')
 
     def __getitem__(self, key: str) -> Node | None:
         for a in self.aliases:
@@ -280,14 +291,21 @@ class Namespace(Node):
     def make_alias(self):
         self.take()  # 'alias'
 
-        old = []
-        if self.next.of('Identifier', 'Type'):
-            old = self.take()
-            if self.next.of('Identifier'):
-                new = self.take()
-                if self.take_specific('Operator', ';'):
-                    self.aliases.append(Alias([old], new, self))
-                    return
+        old: Type = None
+        if self.next.of('Type'):
+            old = Type(self.take())
+        elif self.next.of('Identifier'):
+            old = self.make_type()
+        elif self.take_specific('<'):
+            ...  # TODO functions
+        else:
+            raise ParserError(self.next, 'expected type')
+
+        if self.next.of('Identifier'):
+            new = self.take()
+            if self.take_specific('Operator', ';'):
+                self.aliases.append(Alias(old, new, self))
+                return
 
         raise ParserError(self.next, 'bad alias statement')
 
@@ -367,38 +385,35 @@ class Namespace(Node):
         ...
 
     def make_type(self) -> Type:
+        held_type = None
         tokens: list[Token] = []
 
         if (metatype := self.take_specific('Operator', '@')):
             tokens.append(metatype)
 
-        stack = 0
-
         while True:
-            if self.next.of('Identifier', 'Type'):
+            if (metatype := self.take_specific('Operator', '@')):
+                tokens.append(metatype)
+            elif self.next.of('Type'):
                 tokens.append(self.take())
-                if (dot := self.take_specific('Operator', '.')):
-                    tokens.append(dot)
-                elif (left := self.take_specific('Operator', '<')):
-                    tokens.append(left)
-                    stack += 1
-                elif (metatype := self.take_specific('Operator', '@')):
-                    tokens.append(metatype)
-                elif stack and self.next.of('Operator') and self.next.has('>'):
-                    while (right := self.take_specific('Operator', '>')):
-                        tokens.append(right)
-                        stack -= 1
-                    if not stack:
-                        break
-                else:
-                    break
-            else:
                 break
+            elif self.next.of('Identifier'):
+                if self.last.of('Identifier'):
+                    break
+                tokens.append(self.take())
+                if self.take_specific('Operator', '<'):
+                    held_type = self.make_type()
+                elif (dot := self.take_specific('Operator', '.')):
+                    tokens.append(dot)
+                    continue
+                else:
+                    while self.next_of_has('Operator', '>'):
+                        self.take()
+                break
+            else:
+                raise ParserError(self.next, 'expected type')
 
-        if stack:
-            raise ParserError(self.next, 'expected ">"')
-
-        return Type(tokens)
+        return Type(tokens, held_type)
 
     def make_union(self):
         self.take()  # 'union'
@@ -425,11 +440,13 @@ class Namespace(Node):
                             ids.add(id.string)
                             params.append(UnionParam(held_type, id))
                             self.take_specific('Operator', ',')
+                            if self.take_specific('Operator', '>'):
+                                break
                         else:
                             raise ParserError(self.next, 'expected identifier')
                     elif self.take_specific('Operator', '>'):
                         break
-                if not self.last.of('Operator') or not self.last.has('>'):
+                if not self.last_of_has('Operator', '>'):
                     raise ParserError(self.last, 'expected ">"')
 
             if self.take_specific('Operator', '{'):
@@ -538,19 +555,24 @@ class ParserError(LanguageError):
 
 @dataclass
 class Type(Identifier):
-    tokens: list[Token]
+    held_type: Type | None
+    tokens:    list[Token]
 
-    def __init__(self, token: Token | list[Token]):
+    def __init__(self, token: Token | list[Token], held_type: Type = None):
+        self.held_type = held_type
         if type(token) is Token:
             if not token.of('Type'):
-                raise ParserError(token, 'expected Type')
+                raise ParserError(token, 'expected type')
             self.token  = token
             self.tokens = []
             self.name   = token.string
         else:
-            self.token  = None
+            self.token  = token[0]
             self.tokens = token
             self.name   = ''.join([t.string for t in self.tokens])
+
+        if self.held_type:
+            self.name += f'<{self.held_type}>'
 
     def __repr__(self) -> str:
         return f'Type["{self.name}"]'
@@ -601,6 +623,10 @@ class Union(Node):
                         self.take_specific('Operator', ',')
                     else:
                         raise ParserError(self.next, 'expected identifier')
+
+        for p in self.params:
+            if not p.used:
+                raise ParserError(p.held_type.token, 'unused union parameter')
 
     def __repr__(self) -> str:
         return f'Union["{self.path}" <{', '.join([p.__repr__() for p in self.params])}> <{', '.join([e.__repr__() for e in self.elements])}>]'
