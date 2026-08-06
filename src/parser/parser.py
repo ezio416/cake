@@ -231,6 +231,8 @@ class Namespace(Node):
                     self.make_enum()
                 # elif next.has('interface'):
                 #     self.make_interface()
+                elif next.has('mut'):
+                    self.make_declaration()
                 elif next.has('namespace'):
                     self.make_namespace()
                 # elif next.has('struct'):
@@ -252,8 +254,11 @@ class Namespace(Node):
                 else:
                     self.unexpected.append(self.take())
 
-            elif next.of('Operator') and next.has('}'):
-                self.take()
+            elif self.take_specific('Operator', '}'):
+                pass
+
+            # elif next.of('Identifier'):
+            #     ...  # TODO declarations/functions
 
             else:
                 self.unexpected.append(self.take())
@@ -373,7 +378,7 @@ class Namespace(Node):
         if self.take_specific('Operator', '<'):
             param_types: list[Type] = []
             while True:
-                if self.next.of('Identifier', 'Type') or self.next_of_has('Operator', '@'):
+                if self.next.of('Identifier', 'Type') or self.next.of_has('Operator', '@') or self.next.of_has('Special', 'mut'):
                     param_types.append(self.make_type())
                 elif self.take_specific('Operator', ','):
                     continue
@@ -421,8 +426,10 @@ class Namespace(Node):
         tokens: list[Token] = []
 
         while True:
-            if (metatype := self.take_specific('Operator', '@')):
-                tokens.append(metatype)
+            if (mut := self.take_specific('Special', 'mut')):
+                tokens.append(mut)
+            elif (meta := self.take_specific('Operator', '@')):
+                tokens.append(meta)
             elif (ref := self.take_specific('Operator', '&')):
                 tokens.append(ref)
                 break
@@ -450,19 +457,15 @@ class Namespace(Node):
                 raise ParserError(self.next, 'expected type')
 
         if len(tokens) > 1:
-            if tokens[0].of('Operator') and tokens[0].has('@') and tokens[-1].of('Operator') and tokens[-1].has('&'):
+            if tokens[0].of_has('Operator', '@') and tokens[-1].of_has('Operator', '&'):
                 raise ParserError(tokens[0], 'metatypes are always references')
-            seen_meta = False
-            seen_ref = False
             for i, token in enumerate(tokens):
-                if token.of('Operator') and token.has('@'):
-                    if seen_meta or i:
-                        raise ParserError(token, 'unexpected token')
-                    seen_meta = True
-                elif token.of('Operator') and token.has('&'):
-                    if seen_ref or i < len(tokens) - 1:
-                        raise ParserError(token, 'unexpected token')
-                    seen_ref = True
+                if (i and (token.of_has('Operator', '@') or token.of_has('Special', 'mut')))\
+                or (i < len(tokens) - 1 and token.of_has('Operator', '&')):
+                    raise ParserError(token, 'unexpected token')
+        elif tokens:
+            if not tokens[0].of('Identifier', 'Type'):
+                raise ParserError(tokens[0], 'unexpected token')
 
         return Type(tokens, held_type)
 
@@ -587,12 +590,13 @@ class ParserError(LanguageError):
 @dataclass
 class Type(Identifier):
     held_type: Type | None
+    mut:       bool
     tokens:    list[Token]
 
     def __init__(self, token: Token | list[Token], held_type: Type = None):
         self.held_type = held_type
         if type(token) is Token:
-            if not token.of('Type') and not (token.of('Operator') and token.has('<')):
+            if not token.of('Type') and not token.has('mut') and not token.of_has('Operator', '<'):
                 raise ParserError(token, 'expected type')
             self.token  = token
             self.tokens = []
@@ -601,6 +605,10 @@ class Type(Identifier):
             self.token  = token[0]
             self.tokens = token
             self.name   = ''.join([t.string for t in self.tokens])
+
+        self.mut = self.token.of_has('Special', 'mut')
+        if self.mut:
+            self.name = f'mut {self.name[3:]}'
 
         if self.held_type:
             ref = False
