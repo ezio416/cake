@@ -1,4 +1,5 @@
 alias i32 int;
+alias <std.dict<int>&><i8, u16&, @type> func;
 
 class C : I, S {
     void $init() {

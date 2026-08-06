@@ -292,22 +292,21 @@ class Namespace(Node):
         self.take()  # 'alias'
 
         old: Type = None
-        if self.next.of('Type'):
-            old = Type(self.take())
-        elif self.next.of('Identifier'):
+        if self.next.of('Identifier', 'Type'):
             old = self.make_type()
-        elif self.take_specific('<'):
-            ...  # TODO functions
+        elif self.next_of_has('Operator', '<'):
+            old = self.make_function_type()
         else:
-            raise ParserError(self.next, 'expected type')
+            raise ParserError(self.next, 'unexpected token in alias')
 
         if self.next.of('Identifier'):
             new = self.take()
             if self.take_specific('Operator', ';'):
                 self.aliases.append(Alias(old, new, self))
-                return
-
-        raise ParserError(self.next, 'bad alias statement')
+            else:
+                raise ParserError(self.next, 'expected ";"')
+        else:
+            raise ParserError(self.next, 'expected identifier')
 
     def make_class(self):
         if self.next.of('Special') and self.next.has('abstract', 'final'):
@@ -356,6 +355,39 @@ class Namespace(Node):
     def make_function(self):
         ...
 
+    def make_function_type(self) -> FunctionType:
+        first = self.take()  # "<"
+
+        return_type: Type = None
+
+        if self.next.of('Type'):
+            return_type = Type(self.take())
+            if not self.take_specific('Operator', '>'):
+                raise ParserError(self.next, 'expected ">"')
+        elif self.next.of('Identifier'):
+            return_type = self.make_type()
+            self.take_specific('Operator', '>')
+        else:
+            raise ParserError(self.next, 'expected identifier or type')
+
+        if self.take_specific('Operator', '<'):
+            param_types: list[Type] = []
+            while True:
+                if self.next.of('Identifier', 'Type') or self.next_of_has('Operator', '@'):
+                    param_types.append(self.make_type())
+                elif self.take_specific('Operator', ','):
+                    continue
+                elif self.take_specific('Operator', '>'):
+                    break
+                elif self.next.of('EOF'):
+                    raise ParserError(self.next, 'unexpected EOF')
+                else:
+                    raise ParserError(self.next, 'expected type')
+        else:
+            raise ParserError(self.next, 'expected "<"')
+
+        return FunctionType(first, return_type, param_types)
+
     def make_interface(self):
         ...
 
@@ -385,33 +417,52 @@ class Namespace(Node):
         ...
 
     def make_type(self) -> Type:
-        held_type = None
+        held_type: Type = None
         tokens: list[Token] = []
-
-        if (metatype := self.take_specific('Operator', '@')):
-            tokens.append(metatype)
 
         while True:
             if (metatype := self.take_specific('Operator', '@')):
                 tokens.append(metatype)
+            elif (ref := self.take_specific('Operator', '&')):
+                tokens.append(ref)
+                break
+            elif self.take_specific('Operator', '>'):
+                break
+            elif self.take_specific('Operator', ','):
+                break
             elif self.next.of('Type'):
                 tokens.append(self.take())
-                break
             elif self.next.of('Identifier'):
-                if self.last.of('Identifier'):
+                if self.last.of('Identifier', 'Type'):
                     break
                 tokens.append(self.take())
-                if self.take_specific('Operator', '<'):
-                    held_type = self.make_type()
-                elif (dot := self.take_specific('Operator', '.')):
+                if (dot := self.take_specific('Operator', '.')):
                     tokens.append(dot)
                     continue
-                else:
-                    while self.next_of_has('Operator', '>'):
-                        self.take()
+                if self.take_specific('Operator', '<'):
+                    held_type = self.make_type()
+                    if not self.take_specific('Operator', '>'):
+                        raise ParserError(self.next, 'expected ">"')
+                if (ref := self.take_specific('Operator', '&')):
+                    tokens.append(ref)
                 break
             else:
                 raise ParserError(self.next, 'expected type')
+
+        if len(tokens) > 1:
+            if tokens[0].of('Operator') and tokens[0].has('@') and tokens[-1].of('Operator') and tokens[-1].has('&'):
+                raise ParserError(tokens[0], 'metatypes are always references')
+            seen_meta = False
+            seen_ref = False
+            for i, token in enumerate(tokens):
+                if token.of('Operator') and token.has('@'):
+                    if seen_meta or i:
+                        raise ParserError(token, 'unexpected token')
+                    seen_meta = True
+                elif token.of('Operator') and token.has('&'):
+                    if seen_ref or i < len(tokens) - 1:
+                        raise ParserError(token, 'unexpected token')
+                    seen_ref = True
 
         return Type(tokens, held_type)
 
@@ -494,33 +545,13 @@ class Parser:
 
         self.tree = None
 
-    # def expecting_has(self, *strings: str) -> Token:
-    #     if self.next().has(*strings):
-    #         return self.take()
-
-    #     raise ParserError(self.next().line.loc(), f'expecting has {strings}')
-
-    # def expecting_of(self, *kinds: str) -> Token:
-    #     if self.next().of(*kinds):
-    #         return self.take()
-
-    #     raise ParserError(self.next().line.loc(), f'expecting of {kinds}')
-
-    def id_exists(self, id: str) -> bool:
-        for a in self.global_ns.aliases:
-            if a.name == id:
-                return True
-        for e in self.global_ns.enums:
-            if e.name == id:
-                return True
-        return False
-
     def next(self) -> Token:
         return self.tokens[self.index]
 
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens')
         self.global_ns = Namespace(self.tokens, 'global')
+
         ...  # TODO second pass
 
     def take(self) -> Token:
@@ -561,7 +592,7 @@ class Type(Identifier):
     def __init__(self, token: Token | list[Token], held_type: Type = None):
         self.held_type = held_type
         if type(token) is Token:
-            if not token.of('Type'):
+            if not token.of('Type') and not (token.of('Operator') and token.has('<')):
                 raise ParserError(token, 'expected type')
             self.token  = token
             self.tokens = []
@@ -572,10 +603,35 @@ class Type(Identifier):
             self.name   = ''.join([t.string for t in self.tokens])
 
         if self.held_type:
+            ref = False
+            if self.name.endswith('&'):
+                ref = True
+                self.name = self.name[:-1]
             self.name += f'<{self.held_type}>'
+            if ref:
+                self.name += '&'
 
     def __repr__(self) -> str:
         return f'Type["{self.name}"]'
+
+
+@dataclass
+class FunctionType(Type):
+    param_types: list[Type]
+
+    @property
+    def return_type(self) -> Type | None:
+        return self.held_type
+
+    def __init__(self, first_token: Token, return_type: Type, param_types: list[Type] = []):
+        super().__init__(first_token, return_type)
+        self.held_type = return_type
+        self.param_types = param_types
+
+        self.name = f'<{self.return_type}><{', '.join([t.name for t in self.param_types])}>'
+
+    def __repr__(self) -> str:
+        return f'FunctionType["{self.return_type} ({', '.join([t.name for t in self.param_types])})"]'
 
 
 @dataclass
