@@ -139,7 +139,8 @@ id = [ "$" ] ( [A-Za-z] | "_" ) { [0-9A-Za-z] | "_" } ;
 
 # types
 
-type = [ "@" ] type "<" type ">" | id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
+type = [ "@" ] type_raw | type_raw [ "&" ] ;
+type_raw = type "<" type ">" | id { "." id } | "auto" | "bool" | "char" | type_float | type_int ;
 type_float = "f32" | "f64" ;
 type_int = ( "i" | "u" ) ( "8" | "16" | "32" | "64" ) ;
 type_function = "<" type ">" "<" [ { type "," } type [ "," ] ] ">" ;
