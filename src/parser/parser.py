@@ -37,10 +37,7 @@ class Node(ABC):
         self.index  = 0
 
     def last_of_has(self, of: str, has: str) -> bool:
-        return self.last.of(of) and self.last.has(has) if self.last else False
-
-    def next_of_has(self, of: str, has: str) -> bool:
-        return self.next.of(of) and self.next.has(has)
+        return self.last.of_has(of, has) if self.last else False
 
     def take(self) -> Token:
         token = self.next
@@ -49,7 +46,7 @@ class Node(ABC):
         return token
 
     def take_specific(self, of: str, has: str) -> Token | None:
-        return self.take() if self.next_of_has(of, has) else None
+        return self.take() if self.next.of_has(of, has) else None
 
 
 @dataclass
@@ -299,7 +296,7 @@ class Namespace(Node):
         old: Type = None
         if self.next.of('Identifier', 'Type'):
             old = self.make_type()
-        elif self.next_of_has('Operator', '<'):
+        elif self.next.of_has('Operator', '<'):
             old = self.make_function_type()
         else:
             raise ParserError(self.next, 'unexpected token in alias')

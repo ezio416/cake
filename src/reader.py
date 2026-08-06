@@ -33,16 +33,18 @@ class Config:
 
 @dataclass
 class Line:
-    file:   SourceFile
-    locale: list[int]
-    num:    int
-    string: str
+    comment: str
+    file:    SourceFile
+    locale:  list[int]
+    num:     int
+    string:  str
 
     def __init__(self, file: SourceFile, num: int, string: str):
-        self.file   = file
-        self.locale = [0, 0]
-        self.num    = num
-        self.string = string
+        self.comment = ''
+        self.file    = file
+        self.locale  = [0, 0]
+        self.num     = num
+        self.string  = string
 
     def finished(self) -> bool:
         return self.locale[1] >= len(self.string)

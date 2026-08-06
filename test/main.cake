@@ -1,4 +1,4 @@
-alias i32 int;
+alias i32 int;  // a comment
 alias <std.dict<int>&><i8, mut u16&, @type> func;
 
 class C : I, S {

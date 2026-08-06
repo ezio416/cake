@@ -84,7 +84,11 @@ class Lexer:
                     if line.next() in OPERATOR_SYMBOLS:
                         op = line.take()
                         if op == '/' and line.next() == '/':
+                            line.take()
                             line.ignore()
+                            line.ignore_spaces()
+                            while not line.finished():
+                                line.comment += line.take()
                             break
                         if op == '.' and line.next() == '.':
                             line.take()
@@ -223,6 +227,9 @@ class Token:
 
     def of(self, *kinds: str) -> bool:
         return self.kind in kinds
+
+    def of_has(self, of: str, has: str) -> bool:
+        return self.of(of) and self.has(has)
 
     def tree_repr(self, _) -> str:
         return repr(self)
