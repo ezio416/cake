@@ -40,6 +40,10 @@ abstract struct AS {
     ;
 }
 
+final struct FS : S, AS {
+    i8 i;
+}
+
 union U<i32 i, E e, N.i j, std.array<std.dict<N.i>> s, @type T> {
     a,
     b(i),

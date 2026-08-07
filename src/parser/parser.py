@@ -55,8 +55,10 @@ class Node(ABC):
                 tokens.append(meta)
             elif (ref := self.take_specific('Operator', '&')):
                 tokens.append(ref)
+                self.take_specific('Operator', ',')
                 break
             elif self.take_specific('Operator', '>'):
+                self.take_specific('Operator', ',')
                 break
             elif self.take_specific('Operator', ','):
                 break
@@ -75,6 +77,7 @@ class Node(ABC):
                         self.error('expected ">"')
                 if (ref := self.take_specific('Operator', '&')):
                     tokens.append(ref)
+                self.take_specific('Operator', ',')
                 break
             else:
                 self.error('expected type')
@@ -106,7 +109,7 @@ class Node(ABC):
 class Inheritable(Node, ABC):
     abstract:    bool
     final:       bool
-    inheritance: list[Inheritable]
+    inheritance: list[Type]
     members:     list[Member]
     methods:     list[Method]
 
@@ -577,10 +580,18 @@ class Namespace(Node):
 
         if self.next.of('Identifier'):
             struct_name = self.take()
-            ...  # TODO inheritance
-            self.structs.append(Struct(modifier, struct_name, self.make_block(), self))
+            inheritance = []
+            if self.take_specific('Operator', ':'):
+                while True:
+                    if self.next.of('Identifier', 'Type'):
+                        inheritance.append(self.make_type())
+                        if self.next.of_has('Operator', '{'):
+                            break
+                    else:
+                        self.error('expected inheritable path')
+            self.structs.append(Struct(modifier, struct_name, inheritance, self.make_block(), self))
         else:
-            self.error('expected identifier')
+            self.error('expected struct name')
 
     def make_union(self):
         self.take()  # 'union'
@@ -651,8 +662,9 @@ class StdNamespace(BareNamespace):
 
 @dataclass
 class Struct(Inheritable):
-    def __init__(self, modifier: Token, name: Token, tokens: list[Token], parent: Namespace):
+    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(tokens, Identifier(name), parent)
+        self.inheritance = inheritance
 
         if modifier:
             if modifier.of_has('Special', 'abstract'):
