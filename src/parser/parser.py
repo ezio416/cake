@@ -366,18 +366,19 @@ class Namespace(Node):
                     self.make_namespace()
                 elif next.has('struct'):
                     self.make_struct()
-                # elif next.has('abstract', 'final'):
-                #     self.take()
-                #     match self.next().string:
-                #         case 'class':
-                #             self.make_class()
-                #             pass
-                #         case 'interface':
-                #             self.make_interface()
-                #             pass
-                #         case 'struct':
-                #             self.make_struct()
-                #             pass
+                elif next.has('abstract', 'final'):
+                    modifier = self.take()
+                    match self.next.string:
+                        # case 'class':
+                        #     self.make_class()
+                        #     pass
+                        # case 'interface':
+                        #     self.make_interface()
+                        #     pass
+                        case 'struct':
+                            self.make_struct(modifier)
+                        case _:
+                            self.error('expected inheritable keyword')
                 elif next.has('union'):
                     self.make_union()
                 else:
@@ -571,13 +572,13 @@ class Namespace(Node):
         else:
             self.error('expected identifier')
 
-    def make_struct(self):
+    def make_struct(self, modifier: Token = None):
         self.take()  # "struct"
 
         if self.next.of('Identifier'):
             struct_name = self.take()
             ...  # TODO inheritance
-            self.structs.append(Struct(struct_name, self.make_block(), self))
+            self.structs.append(Struct(modifier, struct_name, self.make_block(), self))
         else:
             self.error('expected identifier')
 
@@ -650,28 +651,40 @@ class StdNamespace(BareNamespace):
 
 @dataclass
 class Struct(Inheritable):
-    def __init__(self, name: Token, tokens: list[Token], parent: Namespace):
+    def __init__(self, modifier: Token, name: Token, tokens: list[Token], parent: Namespace):
         super().__init__(tokens, Identifier(name), parent)
+
+        if modifier:
+            if modifier.of_has('Special', 'abstract'):
+                self.abstract = True
+            elif modifier.of_has('Special', 'final'):
+                self.final = True
+            else:
+                self.error('unexpected modifier token in struct')
 
         while not self.take_specific('Operator', '}'):
             ...  # TODO overrides
 
-            modifiers = []
+            member_modifiers = []
             if self.next.of('Special'):
                 if self.next.has('private', 'protected', 'final'):
-                    modifiers.append(self.take())
+                    member_modifiers.append(self.take())
                     if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                        modifiers.append(self.take())
+                        member_modifiers.append(self.take())
                 else:
                     self.error('unexpected keyword')
 
             if self.next.of('Identifier', 'Type'):
-                self.make_member(modifiers)
+                self.make_member(member_modifiers)
+            elif self.take_specific('Operator', ';'):
+                pass
             else:
                 self.error('expected type')
 
     def __repr__(self) -> str:
-        return f'Struct[ {self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
+        mod = 'abstract' if self.abstract else 'final' if self.final else ''
+        return f'Struct[ {f'{mod} ' if mod else ''}{
+            self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
 
 
 @dataclass
