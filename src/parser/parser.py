@@ -36,6 +36,11 @@ class Node(ABC):
 
         self.index  = 0
 
+    def error(self, msg: str, token: Token = None):
+        if not token:
+            token = self.next
+        raise ParserError(token, msg)
+
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
 
@@ -96,7 +101,7 @@ class Alias(Node):
         self.old = old
 
     def __repr__(self) -> str:
-        return f'Alias["{self.old.name}" -> "{self.path}"]'
+        return f'Alias[ "{self.old.name}" -> "{self.path}" ]'
 
 
 @dataclass
@@ -105,12 +110,20 @@ class Class(Inheritable):
         super().__init__(tokens, Identifier(name), parent)
         ...
 
+    def __repr__(self):
+        return f'Class[ ]'
+
 
 @dataclass
 class Declaration(Node):
-    def __init__(self, tokens: list[Token], name: Token, parent: Node):
+    var_type: Type
+
+    def __init__(self, tokens: list[Token], var_type: Type, name: Token, parent: Node):
         super().__init__(tokens, Identifier(name), parent)
-        ...
+        self.var_type = var_type
+
+    def __repr__(self) -> str:
+        return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
 
 
 @dataclass
@@ -124,7 +137,7 @@ class Enum(Node):
             e.parent = self
 
     def __repr__(self) -> str:
-        return f'Enum["{self.path}" {self.elements}]'
+        return f'Enum[ {self.path} < {self.elements} > ]'
 
 
 @dataclass
@@ -136,7 +149,7 @@ class EnumElement(Node):
         self.value = value
 
     def __repr__(self) -> str:
-        return f'{self.name}={self.value}'
+        return f'EnumElement[ {self.name} = {self.value} ]'
 
 
 @dataclass
@@ -144,6 +157,9 @@ class Function(Node):
     def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
         super().__init__(tokens, Identifier(name), parent)
         ...
+
+    def __repr__(self) -> str:
+        return f'Function[ ]'
 
 
 @dataclass
@@ -153,12 +169,12 @@ class Identifier:
 
     def __init__(self, token: Token):
         if not token.of('Identifier'):
-            raise ParserError(token, 'expected Identifier')
+            raise ParserError(token, 'expected identifier')
         self.token = token
         self.name  = token.string
 
     def __repr__(self) -> str:
-        return f'Identifier["{self.name}"]'
+        return f'Identifier[ {self.name} ]'
 
     def __str__(self) -> str:
         return self.name
@@ -170,19 +186,28 @@ class Interface(Inheritable):
         super().__init__(tokens, Identifier(name), parent)
         ...
 
+    def __repr__(self) -> str:
+        return f'Interface[ ]'
+
 
 @dataclass
-class Member(Node):
+class Member(Declaration):
     def __init__(self, tokens: list[Token], name: Token, parent: Class | Struct):
         super().__init__(tokens, Identifier(name), parent)
         ...
 
+    def __repr__(self) -> str:
+        return f'Member[ ]'
+
 
 @dataclass
-class Method(Node):
+class Method(Function):
     def __init__(self, tokens: list[Token], name: Token, parent: Class | Interface):
         super().__init__(tokens, Identifier(name), parent)
         ...
+
+    def __repr__(self) -> str:
+        return f'Method[ ]'
 
 
 @dataclass
@@ -254,41 +279,22 @@ class Namespace(Node):
             elif self.take_specific('Operator', '}'):
                 pass
 
-            # elif next.of('Identifier'):
-            #     ...  # TODO declarations/functions
+            elif next.of('Identifier', 'Type'):
+                decl_type = self.make_type()
+                if self.next.of('Identifier'):
+                    name = self.take()
+                    if self.take_specific('Operator', '('):
+                        self.functions.append(self.make_function(decl_type, name))
+                    else:
+                        self.declarations.append(self.make_declaration(decl_type, name))
+                else:
+                    self.error('expected identifier')
 
             else:
                 self.unexpected.append(self.take())
 
         if self.unexpected:
             print(f'namespace "{self.name}" has {len(self.unexpected)} unexpected tokens')
-
-    def __getitem__(self, key: str) -> Node | None:
-        for a in self.aliases:
-            if key == a.name:
-                return a
-        for c in self.classes:
-            if key == c.name:
-                return c
-        for d in self.declarations:
-            if key == d.name:
-                return d
-        for e in self.enums:
-            if key == e.name:
-                return e
-        for f in self.functions:
-            if key == f.name:
-                return f
-        for i in self.interfaces:
-            if key == i.name:
-                return i
-        for n in self.namespaces:
-            if key == n.name:
-                return n
-        for s in self.structs:
-            if key == s.name:
-                return s
-        return None
 
     def make_alias(self):
         self.take()  # 'alias'
@@ -299,16 +305,16 @@ class Namespace(Node):
         elif self.next.of_has('Operator', '<'):
             old = self.make_function_type()
         else:
-            raise ParserError(self.next, 'unexpected token in alias')
+            self.error('unexpected token in alias')
 
         if self.next.of('Identifier'):
             new = self.take()
             if self.take_specific('Operator', ';'):
                 self.aliases.append(Alias(old, new, self))
             else:
-                raise ParserError(self.next, 'expected ";"')
+                self.error('expected ";"')
         else:
-            raise ParserError(self.next, 'expected identifier')
+            self.error('expected identifier')
 
     def make_class(self):
         if self.next.of('Special') and self.next.has('abstract', 'final'):
@@ -316,8 +322,20 @@ class Namespace(Node):
 
         ...
 
-    def make_declaration(self):
-        ...
+    def make_declaration(self, decl_type: Type, name: Token) -> Declaration:
+        tokens: list[Token] = []
+
+        if self.take_specific('Operator', ';'):
+            pass
+        elif self.take_specific('Operator', '='):
+            while not self.next.of_has('Operator', ';'):
+                tokens.append(self.take())
+                if self.next.of('EOF'):
+                    self.error('unexpected EOF')
+        else:
+            self.error('unexpected token')
+
+        return Declaration(tokens, decl_type, name, self)
 
     def make_enum(self):
         self.take()  # 'enum'
@@ -343,18 +361,18 @@ class Namespace(Node):
                                 elements.append(EnumElement(element_name, value))
                             self.take_specific('Operator', ',')
                         else:
-                            raise ParserError(next, 'unexpected token in enum')
+                            self.error('unexpected token in enum')
                     elif self.take_specific('Operator', '}'):
                         break
                     else:
-                        raise ParserError(next, 'unexpected token in enum')
+                        self.error('unexpected token in enum')
 
                 self.enums.append(Enum(elements, name, self))
                 return
 
-        raise ParserError(self.next, 'bad enum definition')
+        self.error('bad enum definition')
 
-    def make_function(self):
+    def make_function(self, return_type: Type, name: Token) -> Function:
         ...
 
     def make_function_type(self) -> FunctionType:
@@ -365,12 +383,12 @@ class Namespace(Node):
         if self.next.of('Type'):
             return_type = Type(self.take())
             if not self.take_specific('Operator', '>'):
-                raise ParserError(self.next, 'expected ">"')
+                self.error('expected ">"')
         elif self.next.of('Identifier'):
             return_type = self.make_type()
             self.take_specific('Operator', '>')
         else:
-            raise ParserError(self.next, 'expected identifier or type')
+            self.error('expected identifier or type')
 
         if self.take_specific('Operator', '<'):
             param_types: list[Type] = []
@@ -382,11 +400,11 @@ class Namespace(Node):
                 elif self.take_specific('Operator', '>'):
                     break
                 elif self.next.of('EOF'):
-                    raise ParserError(self.next, 'unexpected EOF')
+                    self.error('unexpected EOF')
                 else:
-                    raise ParserError(self.next, 'expected type')
+                    self.error('expected type')
         else:
-            raise ParserError(self.next, 'expected "<"')
+            self.error('expected "<"')
 
         return FunctionType(first, return_type, param_types)
 
@@ -404,7 +422,7 @@ class Namespace(Node):
                 while stack:
                     next = self.next
                     if next.of('EOF'):
-                        raise ParserError(next, 'unexpected EOF')
+                        self.error('unexpected EOF')
                     if next.of('Operator'):
                         if next.has('{'):
                             stack += 1
@@ -413,7 +431,7 @@ class Namespace(Node):
                     tokens.append(self.take())
                 self.namespaces.append(Namespace(tokens + [Token('EOF', None)], Identifier(name), self))
         else:
-            raise ParserError(self.next, 'expected identifier')
+            self.error('expected identifier')
 
     def make_struct(self):
         ...
@@ -446,23 +464,23 @@ class Namespace(Node):
                 if self.take_specific('Operator', '<'):
                     held_type = self.make_type()
                     if not self.take_specific('Operator', '>'):
-                        raise ParserError(self.next, 'expected ">"')
+                        self.error('expected ">"')
                 if (ref := self.take_specific('Operator', '&')):
                     tokens.append(ref)
                 break
             else:
-                raise ParserError(self.next, 'expected type')
+                self.error('expected type')
 
         if len(tokens) > 1:
             if tokens[0].of_has('Operator', '@') and tokens[-1].of_has('Operator', '&'):
-                raise ParserError(tokens[0], 'metatypes are always references')
+                self.error('metatypes are always references', tokens[0])
             for i, token in enumerate(tokens):
                 if (i and (token.of_has('Operator', '@') or token.of_has('Special', 'mut')))\
                 or (i < len(tokens) - 1 and token.of_has('Operator', '&')):
-                    raise ParserError(token, 'unexpected token')
+                    self.error('unexpected token', token)
         elif tokens:
             if not tokens[0].of('Identifier', 'Type'):
-                raise ParserError(tokens[0], 'unexpected token')
+                self.error('unexpected token', tokens[0])
 
         return Type(tokens, held_type)
 
@@ -479,44 +497,48 @@ class Namespace(Node):
                     held_type = self.make_type()
                     if (type_parts := held_type.tokens):
                         if type_parts[-1].has('.'):
-                            raise ParserError(type_parts[-1], 'expected identifier')
-                        param_type = ''.join([n.string for n in type_parts])
+                            self.error('expected identifier', type_parts[-1])
+                        param_type = ''.join([t.string for t in type_parts])
                         if param_type in types:
-                            raise ParserError(type_parts, 'duplicate union parameter type')
+                            self.error('duplicate union parameter type', type_parts)
                         types.add(param_type)
                         if self.next.of('Identifier'):
                             id = self.take()
                             if id.string in ids:
-                                raise ParserError(id, 'duplicate union parameter name')
+                                self.error('duplicate union parameter name', id)
                             ids.add(id.string)
                             params.append(UnionParam(held_type, id))
                             self.take_specific('Operator', ',')
                             if self.take_specific('Operator', '>'):
                                 break
                         else:
-                            raise ParserError(self.next, 'expected identifier')
+                            self.error('expected identifier')
                     elif self.take_specific('Operator', '>'):
                         break
                 if not self.last_of_has('Operator', '>'):
-                    raise ParserError(self.last, 'expected ">"')
+                    self.error('expected ">"', self.last)
 
             if self.take_specific('Operator', '{'):
                 tokens = []
                 while not self.take_specific('Operator', '}'):
                     if self.next.of('EOF'):
-                        raise ParserError(self.next, 'unexpected EOF')
+                        self.error('unexpected EOF')
                     tokens.append(self.take())
                 self.unions.append(Union(params, tokens, union_name, self))
                 return
             else:
-                raise ParserError(self.next, 'expected "{"')
+                self.error('expected "{"')
 
-        raise ParserError(self.next, 'bad union definition')
+        else:
+            self.error('expected identifier')
 
 
 class BareNamespace(Namespace):
     def __init__(self, name: Identifier | str, parent: Namespace = None):
         super().__init__([], name, parent)
+
+    def __repr__(self) -> str:
+        return f'BareNamespace[ ]'
 
 
 @dataclass
@@ -524,12 +546,18 @@ class StdNamespace(BareNamespace):
     def __init__(self, parent: Namespace = None):
         super().__init__('std', parent)
 
+    def __repr__(self) -> str:
+        return f'StdNamespace[ ]'
+
 
 @dataclass
 class Struct(Inheritable):
     def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
         super().__init__(tokens, name, parent)
         ...
+
+    def __repr__(self) -> str:
+        return f'Struct[ ]'
 
 
 @dataclass
@@ -617,7 +645,7 @@ class Type(Identifier):
                 self.name += '&'
 
     def __repr__(self) -> str:
-        return f'Type["{self.name}"]'
+        return f'Type[ {self.name} ]'
 
 
 @dataclass
@@ -636,7 +664,7 @@ class FunctionType(Type):
         self.name = f'<{self.return_type}><{', '.join([t.name for t in self.param_types])}>'
 
     def __repr__(self) -> str:
-        return f'FunctionType["{self.return_type} ({', '.join([t.name for t in self.param_types])})"]'
+        return f'FunctionType[ {self.return_type} < {', '.join([t.name for t in self.param_types])} > ]'
 
 
 @dataclass
@@ -673,24 +701,24 @@ class Union(Node):
                             if held.string == str(p.name):
                                 found = True
                                 if p.used:
-                                    raise ParserError(held, 'union parameter already used')
+                                    self.error('union parameter already used', held)
                                 p.used = True
                                 self.elements.append(UnionElement(element_name, self, p))
                                 break
                         if not found:
-                            raise ParserError(held, 'union parameter not found')
+                            self.error('union parameter not found', held)
                         if not self.take_specific('Operator', ')'):
-                            raise ParserError(self.next, 'expected ")"')
+                            self.error('expected ")"')
                         self.take_specific('Operator', ',')
                     else:
-                        raise ParserError(self.next, 'expected identifier')
+                        self.error('expected identifier')
 
         for p in self.params:
             if not p.used:
-                raise ParserError(p.held_type.token, 'unused union parameter')
+                self.error('unused union parameter', p.held_type.token)
 
     def __repr__(self) -> str:
-        return f'Union["{self.path}" <{', '.join([p.__repr__() for p in self.params])}> <{', '.join([e.__repr__() for e in self.elements])}>]'
+        return f'Union[ {self.path} < {', '.join([p.__repr__() for p in self.params])} > < {', '.join([e.__repr__() for e in self.elements])} > ]'
 
 
 @dataclass
@@ -704,7 +732,7 @@ class UnionElement(Node):
             self.param.element = self
 
     def __repr__(self) -> str:
-        return f'{self.name}{f'({self.param.name})' if self.param else ''}'
+        return f'UnionElement[ {self.name}{f'< {self.param.name} >' if self.param else ''} ]'
 
 
 @dataclass
@@ -720,4 +748,4 @@ class UnionParam(Node):
         self.used      = False
 
     def __repr__(self) -> str:
-        return f'{self.held_type} {self.name}'
+        return f'UnionParam[ {self.held_type} {self.name} ]'
