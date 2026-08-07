@@ -44,6 +44,54 @@ class Node(ABC):
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
 
+    def make_type(self) -> Type:
+        held_type: Type = None
+        tokens: list[Token] = []
+
+        while True:
+            if (mut := self.take_specific('Special', 'mut')):
+                tokens.append(mut)
+            elif (meta := self.take_specific('Operator', '@')):
+                tokens.append(meta)
+            elif (ref := self.take_specific('Operator', '&')):
+                tokens.append(ref)
+                break
+            elif self.take_specific('Operator', '>'):
+                break
+            elif self.take_specific('Operator', ','):
+                break
+            elif self.next.of('Type'):
+                tokens.append(self.take())
+            elif self.next.of('Identifier'):
+                if self.last and self.last.of('Identifier', 'Type'):
+                    break
+                tokens.append(self.take())
+                if (dot := self.take_specific('Operator', '.')):
+                    tokens.append(dot)
+                    continue
+                if self.take_specific('Operator', '<'):
+                    held_type = self.make_type()
+                    if not self.take_specific('Operator', '>'):
+                        self.error('expected ">"')
+                if (ref := self.take_specific('Operator', '&')):
+                    tokens.append(ref)
+                break
+            else:
+                self.error('expected type')
+
+        if len(tokens) > 1:
+            if tokens[0].of_has('Operator', '@') and tokens[-1].of_has('Operator', '&'):
+                self.error('metatypes are always references', tokens[0])
+            for i, token in enumerate(tokens):
+                if (i and (token.of_has('Operator', '@') or token.of_has('Special', 'mut')))\
+                or (i < len(tokens) - 1 and token.of_has('Operator', '&')):
+                    self.error('unexpected token', token)
+        elif tokens:
+            if not tokens[0].of('Identifier', 'Type'):
+                self.error('unexpected token', tokens[0])
+
+        return Type(tokens, held_type)
+
     def take(self) -> Token:
         token = self.next
         if not (token.of('EOF')):
@@ -59,12 +107,44 @@ class Inheritable(Node, ABC):
     abstract:    bool
     final:       bool
     inheritance: list[Inheritable]
+    members:     list[Member]
+    methods:     list[Method]
 
     def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
         super().__init__(tokens, name, parent)
         self.abstract    = False
         self.final       = False
         self.inheritance = []
+        self.members     = []
+        self.methods     = []
+
+    def make_member(self, modifiers: list[Token]):
+        member_type = self.make_type()
+
+        if self.next.of('Identifier'):
+            member_name = self.take()
+        else:
+            self.error('expected identifier')
+
+        tokens: list[Token] = []
+
+        if self.next.of_has('Operator', ';'):
+            tokens.append(self.take())
+        elif self.take_specific('Operator', '='):
+            while True:
+                tokens.append(self.take())
+                if self.next.of('EOF'):
+                    self.error('unexpected EOF')
+                if self.next.of_has('Operator', ';'):
+                    tokens.append(self.take())
+                    break
+        else:
+            self.error('unexpected token in member')
+
+        self.members.append(Member(modifiers, member_type, member_name, tokens[:-1], self))
+
+    def make_method(self, modifiers: list[Token]):
+        ...
 
 
 # @dataclass
@@ -122,6 +202,8 @@ class Declaration(Node):
         super().__init__(tokens, Identifier(name), parent)
         self.var_type = var_type
 
+        ...  # TODO expression
+
     def __repr__(self) -> str:
         return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
 
@@ -157,15 +239,16 @@ class Function(Node):
     params:      list[Declaration]
     return_type: Type
 
-    def __init__(self, return_type: Type, params: list[Declaration], name: Token, tokens: list[Token], parent: Namespace):
-        super().__init__(tokens, Identifier(name), parent)
+    def __init__(self, return_type: Type, params: list[Declaration], name: Token = None, tokens: list[Token] = [], parent: Namespace = None):
+        if name is not None:
+            super().__init__(tokens, Identifier(name), parent)
         self.return_type = return_type
 
         self.params = params
         for p in self.params:
             p.parent = self
 
-        ...
+        ...  # TODO function body
 
     def __repr__(self) -> str:
         return f'Function[ {self.return_type} {self.name} < {', '.join([p.__repr__() for p in self.params])} > ]'
@@ -201,22 +284,37 @@ class Interface(Inheritable):
 
 @dataclass
 class Member(Declaration):
-    def __init__(self, tokens: list[Token], name: Token, parent: Class | Struct):
-        super().__init__(tokens, Identifier(name), parent)
-        ...
+    modifiers: list[Token]
+
+    def __init__(self, modifiers: list[Token], var_type: Type, name: Token, tokens: list[Token], parent: Inheritable):
+        super().__init__(tokens, var_type, name, parent)
+        self.modifiers = modifiers
+
+        ...  # TODO expression
 
     def __repr__(self) -> str:
-        return f'Member[ ]'
+        return f'Member[ {f'< {' '.join([m.string for m in self.modifiers])} > ' if self.modifiers else ''}{self.var_type} {self.name} ]'
 
 
 @dataclass
-class Method(Function):
-    def __init__(self, tokens: list[Token], name: Token, parent: Class | Interface):
-        super().__init__(tokens, Identifier(name), parent)
-        ...
+class Method(Member, Function):
+    def __init__(
+        self,
+        modifiers:   list[Token],
+        return_type: Type,
+        name:        Token,
+        params:      list[Declaration],
+        tokens:      list[Token],
+        parent:      Class | Interface
+    ):
+        super(Member, self).__init__(modifiers, None, name, tokens, parent)
+        super(Function, self).__init__(return_type, params)
+
+        ...  # TODO method body
 
     def __repr__(self) -> str:
-        return f'Method[ ]'
+        return f'Method[ {self.name} < {' '.join([m for m in self.modifiers])} >{
+            super(Function, self).__repr__().replace('Function[', '')}'
 
 
 @dataclass
@@ -266,8 +364,8 @@ class Namespace(Node):
                     self.make_declaration()
                 elif next.has('namespace'):
                     self.make_namespace()
-                # elif next.has('struct'):
-                #     self.make_struct()
+                elif next.has('struct'):
+                    self.make_struct()
                 # elif next.has('abstract', 'final'):
                 #     self.take()
                 #     match self.next().string:
@@ -324,6 +422,24 @@ class Namespace(Node):
                 self.error('expected ";"')
         else:
             self.error('expected identifier')
+
+    def make_block(self) -> list[Token]:
+        if self.take_specific('Operator', '{'):
+            stack = 1
+            tokens = []
+            while stack:
+                next = self.next
+                if next.of('EOF'):
+                    self.error('unexpected EOF')
+                if next.of('Operator'):
+                    if next.has('{'):
+                        stack += 1
+                    elif next.has('}'):
+                        stack -= 1
+                tokens.append(self.take())
+            return tokens
+        else:
+            self.error('expected "{"')
 
     def make_class(self):
         if self.next.of('Special') and self.next.has('abstract', 'final'):
@@ -406,22 +522,7 @@ class Namespace(Node):
         if self.take_specific('Operator', ';'):
             return Function(return_type, params, name, [], self)
 
-        if self.take_specific('Operator', '{'):
-            stack = 1
-            tokens = []
-            while stack:
-                next = self.next
-                if next.of('EOF'):
-                    self.error('unexpected EOF')
-                if next.of('Operator'):
-                    if next.has('{'):
-                        stack += 1
-                    elif next.has('}'):
-                        stack -= 1
-                tokens.append(self.take())
-            return Function(return_type, params, name, tokens, self)
-        else:
-            self.error('unexpected token in function')
+        return Function(return_type, params, name, self.make_block(), self)
 
     def make_function_type(self) -> FunctionType:
         first = self.take()  # "<"
@@ -464,73 +565,21 @@ class Namespace(Node):
 
         if self.next.of('Identifier'):
             name = self.take()
-            if self.take_specific('Operator', '{'):
-                stack = 1
-                tokens = []
-                while stack:
-                    next = self.next
-                    if next.of('EOF'):
-                        self.error('unexpected EOF')
-                    if next.of('Operator'):
-                        if next.has('{'):
-                            stack += 1
-                        elif next.has('}'):
-                            stack -= 1
-                    tokens.append(self.take())
-                self.namespaces.append(Namespace(tokens + [Token('EOF', None)], Identifier(name), self))
+            self.namespaces.append(Namespace(
+                self.make_block() + [Token('EOF', None)], Identifier(name), self
+            ))
         else:
             self.error('expected identifier')
 
     def make_struct(self):
-        ...
+        self.take()  # "struct"
 
-    def make_type(self) -> Type:
-        held_type: Type = None
-        tokens: list[Token] = []
-
-        while True:
-            if (mut := self.take_specific('Special', 'mut')):
-                tokens.append(mut)
-            elif (meta := self.take_specific('Operator', '@')):
-                tokens.append(meta)
-            elif (ref := self.take_specific('Operator', '&')):
-                tokens.append(ref)
-                break
-            elif self.take_specific('Operator', '>'):
-                break
-            elif self.take_specific('Operator', ','):
-                break
-            elif self.next.of('Type'):
-                tokens.append(self.take())
-            elif self.next.of('Identifier'):
-                if self.last.of('Identifier', 'Type'):
-                    break
-                tokens.append(self.take())
-                if (dot := self.take_specific('Operator', '.')):
-                    tokens.append(dot)
-                    continue
-                if self.take_specific('Operator', '<'):
-                    held_type = self.make_type()
-                    if not self.take_specific('Operator', '>'):
-                        self.error('expected ">"')
-                if (ref := self.take_specific('Operator', '&')):
-                    tokens.append(ref)
-                break
-            else:
-                self.error('expected type')
-
-        if len(tokens) > 1:
-            if tokens[0].of_has('Operator', '@') and tokens[-1].of_has('Operator', '&'):
-                self.error('metatypes are always references', tokens[0])
-            for i, token in enumerate(tokens):
-                if (i and (token.of_has('Operator', '@') or token.of_has('Special', 'mut')))\
-                or (i < len(tokens) - 1 and token.of_has('Operator', '&')):
-                    self.error('unexpected token', token)
-        elif tokens:
-            if not tokens[0].of('Identifier', 'Type'):
-                self.error('unexpected token', tokens[0])
-
-        return Type(tokens, held_type)
+        if self.next.of('Identifier'):
+            struct_name = self.take()
+            ...  # TODO inheritance
+            self.structs.append(Struct(struct_name, self.make_block(), self))
+        else:
+            self.error('expected identifier')
 
     def make_union(self):
         self.take()  # 'union'
@@ -601,12 +650,28 @@ class StdNamespace(BareNamespace):
 
 @dataclass
 class Struct(Inheritable):
-    def __init__(self, tokens: list[Token], name: Identifier, parent: Namespace):
-        super().__init__(tokens, name, parent)
-        ...
+    def __init__(self, name: Token, tokens: list[Token], parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
+
+        while not self.take_specific('Operator', '}'):
+            ...  # TODO overrides
+
+            modifiers = []
+            if self.next.of('Special'):
+                if self.next.has('private', 'protected', 'final'):
+                    modifiers.append(self.take())
+                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                        modifiers.append(self.take())
+                else:
+                    self.error('unexpected keyword')
+
+            if self.next.of('Identifier', 'Type'):
+                self.make_member(modifiers)
+            else:
+                self.error('expected type')
 
     def __repr__(self) -> str:
-        return f'Struct[ ]'
+        return f'Struct[ {self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
 
 
 @dataclass

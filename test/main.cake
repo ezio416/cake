@@ -31,9 +31,10 @@ namespace N {
     alias int i;
 }
 
-// struct S {
-//     N.i j = -42e1;
-// }
+struct S {
+    N.i j = -42e1;
+    protected final global.int g;
+}
 
 union U<i32 i, E e, N.i j, std.array<std.dict<N.i>> s, @type T> {
     a,
