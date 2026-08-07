@@ -154,12 +154,21 @@ class EnumElement(Node):
 
 @dataclass
 class Function(Node):
-    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
+    params:      list[Declaration]
+    return_type: Type
+
+    def __init__(self, return_type: Type, params: list[Declaration], name: Token, tokens: list[Token], parent: Namespace):
         super().__init__(tokens, Identifier(name), parent)
+        self.return_type = return_type
+
+        self.params = params
+        for p in self.params:
+            p.parent = self
+
         ...
 
     def __repr__(self) -> str:
-        return f'Function[ ]'
+        return f'Function[ {self.return_type} {self.name} < {', '.join([p.__repr__() for p in self.params])} > ]'
 
 
 @dataclass
@@ -325,15 +334,16 @@ class Namespace(Node):
     def make_declaration(self, decl_type: Type, name: Token) -> Declaration:
         tokens: list[Token] = []
 
-        if self.take_specific('Operator', ';'):
-            pass
+        if self.next.of('Operator') and self.next.has(';', ',', ')'):
+            if self.next.has(';', ','):
+                self.take()
         elif self.take_specific('Operator', '='):
             while not self.next.of_has('Operator', ';'):
                 tokens.append(self.take())
                 if self.next.of('EOF'):
                     self.error('unexpected EOF')
         else:
-            self.error('unexpected token')
+            self.error('unexpected token in declaration')
 
         return Declaration(tokens, decl_type, name, self)
 
@@ -373,7 +383,45 @@ class Namespace(Node):
         self.error('bad enum definition')
 
     def make_function(self, return_type: Type, name: Token) -> Function:
-        ...
+        params = []
+
+        if not self.take_specific('Operator', ')'):
+            while True:
+                if self.next.of('Identifier', 'Type'):
+                    decl_type = self.make_type()
+                    if self.next.of('Identifier'):
+                        params.append(self.make_declaration(decl_type, self.take()))
+                    else:
+                        self.error('expected identifier')
+
+                    if self.take_specific('Operator', ','):
+                        continue
+                    if self.take_specific('Operator', ')'):
+                        break
+                elif self.take_specific('Operator', ')'):
+                    break
+                else:
+                    self.error('expected type')
+
+        if self.take_specific('Operator', ';'):
+            return Function(return_type, params, name, [], self)
+
+        if self.take_specific('Operator', '{'):
+            stack = 1
+            tokens = []
+            while stack:
+                next = self.next
+                if next.of('EOF'):
+                    self.error('unexpected EOF')
+                if next.of('Operator'):
+                    if next.has('{'):
+                        stack += 1
+                    elif next.has('}'):
+                        stack -= 1
+                tokens.append(self.take())
+            return Function(return_type, params, name, tokens, self)
+        else:
+            self.error('unexpected token in function')
 
     def make_function_type(self) -> FunctionType:
         first = self.take()  # "<"
@@ -533,6 +581,7 @@ class Namespace(Node):
             self.error('expected identifier')
 
 
+@dataclass
 class BareNamespace(Namespace):
     def __init__(self, name: Identifier | str, parent: Namespace = None):
         super().__init__([], name, parent)

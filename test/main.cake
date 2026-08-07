@@ -19,6 +19,10 @@ void main() {
     (6 + 7) ** 8 * -9
 }
 
+void add(i32 i, i8 j) {
+    return i + j;
+}
+
 // interface I {
 //     void hello();
 // }
