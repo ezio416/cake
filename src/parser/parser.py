@@ -142,119 +142,6 @@ class Node(ABC):
 
 
 @dataclass
-class Inheritable(Node, ABC):
-    abstract:         bool
-    final:            bool
-    inheritance:      list[Type]
-    members:          list[Member]
-    methods:          list[Method]
-    modifier:         Token
-    override_members: list[Member]
-    override_methods: list[Method]
-
-    def __init__(self, modifier: Token, name: Token, inheritance: list[Type], tokens: list[Token], parent: Namespace):
-        Node.__init__(self, tokens, Identifier(name), parent)
-        self.abstract         = False
-        self.final            = False
-        self.inheritance      = inheritance
-        self.members          = []
-        self.methods          = []
-        self.override_members = []
-        self.override_methods = []
-
-        if modifier:
-            if modifier.of_has('Special', 'abstract'):
-                self.abstract = True
-            elif modifier.of_has('Special', 'final'):
-                self.final = True
-            else:
-                self.error('unexpected modifier token')
-
-    def make_member(self, modifiers: list[Token]):
-        member_type = self.make_type()
-
-        if self.next.of('Identifier'):
-            member_name = self.take()
-        else:
-            self.error('expected identifier')
-
-        tokens: list[Token] = []
-
-        if self.next.of_has('Operator', ';'):
-            tokens.append(self.take())
-        elif self.take_specific('Operator', '='):
-            while True:
-                tokens.append(self.take())
-                if self.next.of('EOF'):
-                    self.error('unexpected EOF')
-                if self.next.of_has('Operator', ';'):
-                    tokens.append(self.take())
-                    break
-        else:
-            self.error('unexpected token in member')
-
-        self.members.append(Member(modifiers, member_type, member_name, tokens[:-1], self))
-
-    def make_method(self, modifiers: list[Token]):
-        return_type = self.make_type()
-
-        if not self.next.of('Identifier'):
-            self.error('expected identifier')
-
-        name = self.take()
-
-        params = []
-
-        if not self.take_specific('Operator', '('):
-            self.error('expected "("')
-
-        if not self.take_specific('Operator', ')'):
-            while True:
-                if self.next.of('Identifier', 'Type') or self.next.of_has('Special', 'mut'):
-                    return_type = self.make_type()
-                    if self.next.of('Identifier'):
-                        params.append(self.make_declaration(return_type, self.take()))
-                    else:
-                        self.error('expected identifier')
-
-                    if self.take_specific('Operator', ','):
-                        continue
-                    if self.take_specific('Operator', ')'):
-                        break
-                elif self.take_specific('Operator', ')'):
-                    break
-                else:
-                    self.error('expected type')
-
-        if self.take_specific('Operator', ';'):
-            self.methods.append(Method(modifiers, return_type, name, params, [], self))
-        else:
-            self.methods.append(Method(modifiers, return_type, name, params, self.make_block(), self))
-
-
-# @dataclass
-# class Accessor(Node):
-#     parts: list[Identifier | Type]
-
-#     def __init__(self, tokens: list[Token] = [], parent: Node = None):
-#         super().__init__(tokens, parent=parent)
-
-#         self.parts = []
-
-#         for token in self.tokens:
-#             if token.of('Identifier', 'Type'):
-#                 self.name += token.string
-#                 if token.of('Identifier'):
-#                     self.parts.append(Identifier(token))
-#                 else:
-#                     self.parts.append(Type(token))
-#             elif token.of('Operator') and token.has('.'):
-#                 self.name += token.string
-#             else:
-#                 raise ParserError(token, 'unexpected token in accessor')
-
-
-@dataclass
 class Alias(Node):
     old: Type
 
@@ -267,169 +154,6 @@ class Alias(Node):
 
     def __repr__(self) -> str:
         return f'Alias[ "{self.old.name}" -> "{self.path}" ]'
-
-
-@dataclass
-class Class(Inheritable):
-    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
-        super().__init__(tokens, Identifier(name), parent)
-        ...
-
-    def __repr__(self):
-        return f'Class[ ]'
-
-
-@dataclass
-class Declaration(Node):
-    var_type: Type
-
-    def __init__(self, var_type: Type, name: Token, tokens: list[Token], parent: Node):
-        Node.__init__(self, tokens, Identifier(name), parent)
-        self.var_type = var_type
-
-        ...  # TODO expression
-
-    def __repr__(self) -> str:
-        return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
-
-
-@dataclass
-class Enum(Node):
-    elements: list[EnumElement]
-
-    def __init__(self, elements: list[EnumElement], name: Token, parent: Namespace):
-        super().__init__([], Identifier(name), parent)
-        self.elements = elements
-        for e in self.elements:
-            e.parent = self
-
-    def __repr__(self) -> str:
-        return f'Enum[ {self.path} < {self.elements} > ]'
-
-
-@dataclass
-class EnumElement(Node):
-    value: int
-
-    def __init__(self, name: Token, value: int = 0):
-        super().__init__(name=Identifier(name))
-        self.value = value
-
-    def __repr__(self) -> str:
-        return f'EnumElement[ {self.name} = {self.value} ]'
-
-
-@dataclass
-class Function(Node):
-    params:      list[Declaration]
-    return_type: Type
-
-    def __init__(
-        self,
-        return_type: Type,
-        name:        Token,
-        params:      list[Declaration],
-        tokens:      list[Token] = [],
-        parent:      Namespace   = None
-    ):
-        if name is not None:
-            super().__init__(tokens, Identifier(name), parent)
-        self.return_type = return_type
-
-        self.params = params
-        for p in self.params:
-            p.parent = self
-
-        ...  # TODO function body
-
-    def __repr__(self) -> str:
-        return f'Function[ {self.return_type} {self.name}{
-            f' < {', '.join([p.__repr__() for p in self.params])} >' if self.params else ''} ]'
-
-
-@dataclass
-class Identifier:
-    name:  str
-    token: Token | None
-
-    def __init__(self, token: Token):
-        if not token.of('Identifier'):
-            raise ParserError(token, 'expected identifier')
-        self.token = token
-        self.name  = token.string
-
-    def __repr__(self) -> str:
-        return f'Identifier[ {self.name} ]'
-
-    def __str__(self) -> str:
-        return self.name
-
-
-@dataclass
-class Interface(Inheritable):
-    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
-        super().__init__(modifier, name, inheritance, tokens, parent)
-
-        while not self.take_specific('Operator', '}'):
-            ...  # TODO overrides
-
-            method_modifiers = []
-            if self.next.of('Special'):
-                if self.next.has('private', 'protected', 'final'):
-                    method_modifiers.append(self.take())
-                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                        method_modifiers.append(self.take())
-                else:
-                    self.error('unexpected keyword')
-
-            if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
-                self.make_method(method_modifiers)
-            elif self.take_specific('Operator', ';'):
-                pass
-            else:
-                self.error('expected type')
-
-    def __repr__(self) -> str:
-        mod = 'abstract' if self.abstract else 'final' if self.final else ''
-        return f'Interface[ {f'{mod} ' if mod else ''}{
-            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
-            ', '.join([m.__repr__() for m in self.methods])} > ]'
-
-
-@dataclass
-class Member(Declaration):
-    modifiers: list[Token]
-
-    def __init__(self, modifiers: list[Token], var_type: Type, name: Token, tokens: list[Token], parent: Inheritable):
-        super().__init__(var_type, name, tokens, parent)
-        self.modifiers = modifiers
-
-        ...  # TODO expression
-
-    def __repr__(self) -> str:
-        return f'Member[ {f'< {' '.join([m.string for m in self.modifiers])} > ' if self.modifiers else ''}{
-            self.var_type} {self.name} ]'
-
-
-@dataclass
-class Method(Member, Function):
-    def __init__(
-        self,
-        modifiers:   list[Token],
-        return_type: Type,
-        name:        Token,
-        params:      list[Declaration],
-        tokens:      list[Token],
-        parent:      Class | Interface
-    ):
-        Member.__init__(self, modifiers, None, name, tokens, parent)
-        Function.__init__(self, return_type, None, params)
-
-        ...  # TODO method body
-
-    def __repr__(self) -> str:
-        return f'Method[{f' < {' '.join([m.string for m in self.modifiers])} >' if self.modifiers else ''}{
-            Function.__repr__(self).replace('Function[', '')}'
 
 
 @dataclass
@@ -745,94 +469,190 @@ class BareNamespace(Namespace):
 
 
 @dataclass
-class StdNamespace(BareNamespace):
-    def __init__(self, parent: Namespace = None):
-        super().__init__('std', parent)
+class Inheritable(Node, ABC):
+    abstract:         bool
+    final:            bool
+    inheritance:      list[Type]
+    members:          list[Member]
+    methods:          list[Method]
+    modifier:         Token
+    override_members: list[Member]
+    override_methods: list[Method]
 
-    def __repr__(self) -> str:
-        return f'StdNamespace[ ]'
+    def __init__(self, modifier: Token, name: Token, inheritance: list[Type], tokens: list[Token], parent: Namespace):
+        Node.__init__(self, tokens, Identifier(name), parent)
+        self.abstract         = False
+        self.final            = False
+        self.inheritance      = inheritance
+        self.members          = []
+        self.methods          = []
+        self.override_members = []
+        self.override_methods = []
 
-
-@dataclass
-class Struct(Inheritable):
-    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
-        super().__init__(modifier, name, inheritance, tokens, parent)
-
-        while not self.take_specific('Operator', '}'):
-            ...  # TODO overrides
-
-            member_modifiers = []
-            if self.next.of('Special'):
-                if self.next.has('private', 'protected', 'final'):
-                    member_modifiers.append(self.take())
-                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                        member_modifiers.append(self.take())
-                else:
-                    self.error('unexpected keyword')
-
-            if self.next.of('Identifier', 'Type'):
-                self.make_member(member_modifiers)
-            elif self.take_specific('Operator', ';'):
-                pass
+        if modifier:
+            if modifier.of_has('Special', 'abstract'):
+                self.abstract = True
+            elif modifier.of_has('Special', 'final'):
+                self.final = True
             else:
-                self.error('expected type')
+                self.error('unexpected modifier token')
 
-    def __repr__(self) -> str:
-        mod = 'abstract' if self.abstract else 'final' if self.final else ''
-        return f'Struct[ {f'{mod} ' if mod else ''}{
-            self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
+    def make_member(self, modifiers: list[Token]):
+        member_type = self.make_type()
+
+        if self.next.of('Identifier'):
+            member_name = self.take()
+        else:
+            self.error('expected identifier')
+
+        tokens: list[Token] = []
+
+        if self.next.of_has('Operator', ';'):
+            tokens.append(self.take())
+        elif self.take_specific('Operator', '='):
+            while True:
+                tokens.append(self.take())
+                if self.next.of('EOF'):
+                    self.error('unexpected EOF')
+                if self.next.of_has('Operator', ';'):
+                    tokens.append(self.take())
+                    break
+        else:
+            self.error('unexpected token in member')
+
+        self.members.append(Member(modifiers, member_type, member_name, tokens[:-1], self))
+
+    def make_method(self, modifiers: list[Token]):
+        return_type = self.make_type()
+
+        if not self.next.of('Identifier'):
+            self.error('expected identifier')
+
+        name = self.take()
+
+        params = []
+
+        if not self.take_specific('Operator', '('):
+            self.error('expected "("')
+
+        if not self.take_specific('Operator', ')'):
+            while True:
+                if self.next.of('Identifier', 'Type') or self.next.of_has('Special', 'mut'):
+                    return_type = self.make_type()
+                    if self.next.of('Identifier'):
+                        params.append(self.make_declaration(return_type, self.take()))
+                    else:
+                        self.error('expected identifier')
+
+                    if self.take_specific('Operator', ','):
+                        continue
+                    if self.take_specific('Operator', ')'):
+                        break
+                elif self.take_specific('Operator', ')'):
+                    break
+                else:
+                    self.error('expected type')
+
+        if self.take_specific('Operator', ';'):
+            self.methods.append(Method(modifiers, return_type, name, params, [], self))
+        else:
+            self.methods.append(Method(modifiers, return_type, name, params, self.make_block(), self))
 
 
 @dataclass
-class Parser:
-    global_ns:  Namespace
-    output_dir: str
-    tokens:     list[Token]
-    tree:       Node
+class Class(Inheritable):
+    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
+        super().__init__(tokens, Identifier(name), parent)
+        ...
 
-    def __init__(self, tokens: list[Token], output_dir: str = ''):
-        self.tokens     = tokens
-        self.output_dir = output_dir
-
-        self.tree = None
-
-    def next(self) -> Token:
-        return self.tokens[self.index]
-
-    def parse(self) -> None:
-        print(f'parsing {len(self.tokens)} tokens')
-        self.global_ns = Namespace(self.tokens, 'global')
-
-        ...  # TODO second pass
-
-    def take(self) -> Token:
-        token = self.next()
-        self.index += 1
-        return token
-
-    def write_debug(self) -> None:
-        if not self.output_dir:
-            raise LanguageError('no output folder given')
-
-        with open(os.path.join(self.output_dir, '3_parser.cakedebug'), 'w', newline='\n') as f:
-            f.write(debug_header('step 3: parser'))
-            # f.write(f'tree:\n\t{self.tree}\n')
-
-            f.write('aliases:\n')
-            for a in self.global_ns.aliases:
-                f.write(f'\t{repr(a)}\n')
-
-            f.write('enums:\n')
-            for e in self.global_ns.enums:
-                f.write(f'\t{repr(e)}\n')
+    def __repr__(self):
+        return f'Class[ ]'
 
 
-class ParserError(LanguageError):
-    def __init__(self, token: Token | list[Token], *args):
-        if type(token) is Token:
-            super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
-        else:
-            super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
+@dataclass
+class Declaration(Node):
+    var_type: Type
+
+    def __init__(self, var_type: Type, name: Token, tokens: list[Token], parent: Node):
+        Node.__init__(self, tokens, Identifier(name), parent)
+        self.var_type = var_type
+
+        ...  # TODO expression
+
+    def __repr__(self) -> str:
+        return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
+
+
+@dataclass
+class Enum(Node):
+    elements: list[EnumElement]
+
+    def __init__(self, elements: list[EnumElement], name: Token, parent: Namespace):
+        super().__init__([], Identifier(name), parent)
+        self.elements = elements
+        for e in self.elements:
+            e.parent = self
+
+    def __repr__(self) -> str:
+        return f'Enum[ {self.path} < {self.elements} > ]'
+
+
+@dataclass
+class EnumElement(Node):
+    value: int
+
+    def __init__(self, name: Token, value: int = 0):
+        super().__init__(name=Identifier(name))
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f'EnumElement[ {self.name} = {self.value} ]'
+
+
+@dataclass
+class Function(Node):
+    params:      list[Declaration]
+    return_type: Type
+
+    def __init__(
+        self,
+        return_type: Type,
+        name:        Token,
+        params:      list[Declaration],
+        tokens:      list[Token] = [],
+        parent:      Namespace   = None
+    ):
+        if name is not None:
+            super().__init__(tokens, Identifier(name), parent)
+        self.return_type = return_type
+
+        self.params = params
+        for p in self.params:
+            p.parent = self
+
+        ...  # TODO function body
+
+    def __repr__(self) -> str:
+        return f'Function[ {self.return_type} {self.name}{
+            f' < {', '.join([p.__repr__() for p in self.params])} >' if self.params else ''} ]'
+
+
+@dataclass
+class Identifier:
+    name:  str
+    token: Token | None
+
+    def __init__(self, token: Token):
+        if not token.of('Identifier'):
+            raise ParserError(token, 'expected identifier')
+        self.token = token
+        self.name  = token.string
+
+    def __repr__(self) -> str:
+        return f'Identifier[ {self.name} ]'
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -888,6 +708,164 @@ class FunctionType(Type):
 
     def __repr__(self) -> str:
         return f'FunctionType[ {self.return_type} < {', '.join([t.name for t in self.param_types])} > ]'
+
+
+@dataclass
+class Interface(Inheritable):
+    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
+        super().__init__(modifier, name, inheritance, tokens, parent)
+
+        while not self.take_specific('Operator', '}'):
+            ...  # TODO overrides
+
+            method_modifiers = []
+            if self.next.of('Special'):
+                if self.next.has('private', 'protected', 'final'):
+                    method_modifiers.append(self.take())
+                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                        method_modifiers.append(self.take())
+                else:
+                    self.error('unexpected keyword')
+
+            if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                self.make_method(method_modifiers)
+            elif self.take_specific('Operator', ';'):
+                pass
+            else:
+                self.error('expected type')
+
+    def __repr__(self) -> str:
+        mod = 'abstract' if self.abstract else 'final' if self.final else ''
+        return f'Interface[ {f'{mod} ' if mod else ''}{
+            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
+            ', '.join([m.__repr__() for m in self.methods])} > ]'
+
+
+@dataclass
+class Member(Declaration):
+    modifiers: list[Token]
+
+    def __init__(self, modifiers: list[Token], var_type: Type, name: Token, tokens: list[Token], parent: Inheritable):
+        super().__init__(var_type, name, tokens, parent)
+        self.modifiers = modifiers
+
+        ...  # TODO expression
+
+    def __repr__(self) -> str:
+        return f'Member[ {f'< {' '.join([m.string for m in self.modifiers])} > ' if self.modifiers else ''}{
+            self.var_type} {self.name} ]'
+
+
+@dataclass
+class Method(Member, Function):
+    def __init__(
+        self,
+        modifiers:   list[Token],
+        return_type: Type,
+        name:        Token,
+        params:      list[Declaration],
+        tokens:      list[Token],
+        parent:      Class | Interface
+    ):
+        Member.__init__(self, modifiers, None, name, tokens, parent)
+        Function.__init__(self, return_type, None, params)
+
+        ...  # TODO method body
+
+    def __repr__(self) -> str:
+        return f'Method[{f' < {' '.join([m.string for m in self.modifiers])} >' if self.modifiers else ''}{
+            Function.__repr__(self).replace('Function[', '')}'
+
+
+@dataclass
+class Parser:
+    global_ns:  Namespace
+    output_dir: str
+    tokens:     list[Token]
+    tree:       Node
+
+    def __init__(self, tokens: list[Token], output_dir: str = ''):
+        self.tokens     = tokens
+        self.output_dir = output_dir
+
+        self.tree = None
+
+    def next(self) -> Token:
+        return self.tokens[self.index]
+
+    def parse(self) -> None:
+        print(f'parsing {len(self.tokens)} tokens')
+        self.global_ns = Namespace(self.tokens, 'global')
+
+        ...  # TODO second pass
+
+    def take(self) -> Token:
+        token = self.next()
+        self.index += 1
+        return token
+
+    def write_debug(self) -> None:
+        if not self.output_dir:
+            raise LanguageError('no output folder given')
+
+        with open(os.path.join(self.output_dir, '3_parser.cakedebug'), 'w', newline='\n') as f:
+            f.write(debug_header('step 3: parser'))
+            # f.write(f'tree:\n\t{self.tree}\n')
+
+            f.write('aliases:\n')
+            for a in self.global_ns.aliases:
+                f.write(f'\t{repr(a)}\n')
+
+            f.write('enums:\n')
+            for e in self.global_ns.enums:
+                f.write(f'\t{repr(e)}\n')
+
+
+class ParserError(LanguageError):
+    def __init__(self, token: Token | list[Token], *args):
+        if type(token) is Token:
+            super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
+        else:
+            super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
+
+
+@dataclass
+class StdNamespace(BareNamespace):
+    def __init__(self, parent: Namespace = None):
+        super().__init__('std', parent)
+
+    def __repr__(self) -> str:
+        return f'StdNamespace[ ]'
+
+
+@dataclass
+class Struct(Inheritable):
+    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
+        super().__init__(modifier, name, inheritance, tokens, parent)
+
+        while not self.take_specific('Operator', '}'):
+            ...  # TODO overrides
+
+            member_modifiers = []
+            if self.next.of('Special'):
+                if self.next.has('private', 'protected', 'final'):
+                    member_modifiers.append(self.take())
+                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                        member_modifiers.append(self.take())
+                else:
+                    self.error('unexpected keyword')
+
+            if self.next.of('Identifier', 'Type'):
+                self.make_member(member_modifiers)
+            elif self.take_specific('Operator', ';'):
+                pass
+            else:
+                self.error('expected type')
+
+    def __repr__(self) -> str:
+        mod = 'abstract' if self.abstract else 'final' if self.final else ''
+        return f'Struct[ {f'{mod} ' if mod else ''}{
+            self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
 
 
 @dataclass
