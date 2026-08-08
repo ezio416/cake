@@ -30,9 +30,9 @@ interface I {
 }
 
 final interface J : I {
-    // override {
-    //     void hello() { }
-    // }
+    override {
+        void hello() { }
+    }
 }
 
 namespace N {
@@ -49,6 +49,10 @@ abstract struct AS {
 }
 
 final struct FS : S, AS {
+    override {
+        N.i j;
+    }
+
     i8 i;
 }
 

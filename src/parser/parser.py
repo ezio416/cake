@@ -497,7 +497,7 @@ class Inheritable(Node, ABC):
             else:
                 self.error('unexpected modifier token')
 
-    def make_member(self, modifiers: list[Token]):
+    def make_member(self, modifiers: list[Token]) -> Member:
         member_type = self.make_type()
 
         if self.next.of('Identifier'):
@@ -520,9 +520,9 @@ class Inheritable(Node, ABC):
         else:
             self.error('unexpected token in member')
 
-        self.members.append(Member(modifiers, member_type, member_name, tokens[:-1], self))
+        return Member(modifiers, member_type, member_name, tokens[:-1], self)
 
-    def make_method(self, modifiers: list[Token]):
+    def make_method(self, modifiers: list[Token]) -> Method:
         return_type = self.make_type()
 
         if not self.next.of('Identifier'):
@@ -554,9 +554,9 @@ class Inheritable(Node, ABC):
                     self.error('expected type')
 
         if self.take_specific('Operator', ';'):
-            self.methods.append(Method(modifiers, return_type, name, params, [], self))
+            return Method(modifiers, return_type, name, params, [], self)
         else:
-            self.methods.append(Method(modifiers, return_type, name, params, self.make_block(), self))
+            return Method(modifiers, return_type, name, params, self.make_block(), self)
 
 
 @dataclass
@@ -716,19 +716,42 @@ class Interface(Inheritable):
         super().__init__(modifier, name, inheritance, tokens, parent)
 
         while not self.take_specific('Operator', '}'):
-            ...  # TODO overrides
+            if self.take_specific('Special', 'override'):
+                if not self.take_specific('Operator', '{'):
+                    self.error('expected "{"')
+                while not self.take_specific('Operator', '}'):  # TODO DRY
+                    mods = []
+                    if self.next.of('Special'):
+                        if self.next.has('private', 'protected', 'final'):
+                            mods.append(self.take())
+                            if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                                mods.append(self.take())
+                        else:
+                            self.error('unexpected keyword')
 
-            method_modifiers = []
+                    if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                        self.override_methods.append(self.make_method(mods))
+                    elif self.take_specific('Operator', ';'):
+                        pass
+                    elif self.take_specific('Operator', '}'):
+                        break
+                    else:
+                        self.error('expected type')
+
+            if self.take_specific('Operator', '}'):
+                break
+
+            mods = []
             if self.next.of('Special'):
                 if self.next.has('private', 'protected', 'final'):
-                    method_modifiers.append(self.take())
+                    mods.append(self.take())
                     if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                        method_modifiers.append(self.take())
+                        mods.append(self.take())
                 else:
                     self.error('unexpected keyword')
 
             if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
-                self.make_method(method_modifiers)
+                self.methods.append(self.make_method(mods))
             elif self.take_specific('Operator', ';'):
                 pass
             else:
@@ -844,19 +867,37 @@ class Struct(Inheritable):
         super().__init__(modifier, name, inheritance, tokens, parent)
 
         while not self.take_specific('Operator', '}'):
-            ...  # TODO overrides
+            if self.take_specific('Special', 'override'):
+                if not self.take_specific('Operator', '{'):
+                    self.error('expected "{"')
+                while not self.take_specific('Operator', '}'):  # TODO DRY
+                    mods = []
+                    if self.next.of('Special'):
+                        if self.next.has('private', 'protected', 'final'):
+                            mods.append(self.take())
+                            if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                                mods.append(self.take())
+                        else:
+                            self.error('unexpected keyword')
 
-            member_modifiers = []
+                    if self.next.of('Identifier', 'Type'):
+                        self.override_members.append(self.make_member(mods))
+                    elif self.take_specific('Operator', ';'):
+                        pass
+                    else:
+                        self.error('expected type')
+
+            mods = []
             if self.next.of('Special'):
                 if self.next.has('private', 'protected', 'final'):
-                    member_modifiers.append(self.take())
+                    mods.append(self.take())
                     if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                        member_modifiers.append(self.take())
+                        mods.append(self.take())
                 else:
                     self.error('unexpected keyword')
 
             if self.next.of('Identifier', 'Type'):
-                self.make_member(member_modifiers)
+                self.members.append(self.make_member(mods))
             elif self.take_specific('Operator', ';'):
                 pass
             else:
@@ -865,7 +906,8 @@ class Struct(Inheritable):
     def __repr__(self) -> str:
         mod = 'abstract' if self.abstract else 'final' if self.final else ''
         return f'Struct[ {f'{mod} ' if mod else ''}{
-            self.name} < {', '.join([m.__repr__() for m in self.members])} > ]'
+            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
+            ', '.join([m.__repr__() for m in self.members])} > ]'
 
 
 @dataclass
