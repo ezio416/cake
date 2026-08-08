@@ -13,8 +13,8 @@ OPERATOR_SYMBOLS   = '!#%&*+-./:<=>?@^|'
 PUNCTUATOR_SYMBOLS = r'"\'(),;[]{}'
 SPECIAL_KEYWORDS   = 'abstract', 'actually', 'alias', 'as', 'async', 'await', 'break', 'case', 'cast', 'catch',\
     'class', 'continue', 'default', 'del', 'do', 'else', 'enum', 'extern', 'false', 'final', 'finally', 'for', 'from',\
-    'if', 'import', 'in', 'interface', 'is', 'mut', 'namespace', 'of', 'private', 'property', 'protected', 'return',\
-    'static', 'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
+    'if', 'import', 'in', 'interface', 'is', 'mut', 'namespace', 'of', 'override', 'private', 'property', 'protected',\
+    'return', 'static', 'struct', 'super', 'switch', 'this', 'throw', 'true', 'try', 'union', 'while', 'with', 'yield'
 TYPE_KEYWORDS      = 'auto', 'bool', 'char', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'void'
 UNUSED_SYMBOLS     = '`~'
 

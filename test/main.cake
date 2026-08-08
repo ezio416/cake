@@ -23,9 +23,17 @@ void add(i32 i, i8 j) {
     return i + j;
 }
 
-// interface I {
-//     void hello();
-// }
+interface I {
+    void hello();
+    std.string bye() { return ""; }
+    final i32 world(i8 i) { return 42; }
+}
+
+final interface J : I {
+    // override {
+    //     void hello() { }
+    // }
+}
 
 namespace N {
     alias int i;
@@ -44,7 +52,13 @@ final struct FS : S, AS {
     i8 i;
 }
 
-union U<i32 i, E e, N.i j, std.array<std.dict<N.i>> s, @type T> {
+union U<
+    i32                      i,
+    E                        e,
+    N.i                      j,
+    std.array<std.dict<N.i>> s,
+    @type                    T
+> {
     a,
     b(i),
     c(e),

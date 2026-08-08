@@ -133,7 +133,7 @@ namespace std {
     }
 
     class bytes : array {
-        array {
+        override {
             @u8 $type;  // forbidden special declaration
         }
 
@@ -186,7 +186,7 @@ namespace std {
     }
 
     abstract class container {
-        type {
+        override {
             option<bool> $as() {
                 return $length > 0;
             }
