@@ -41,26 +41,32 @@ class Node(ABC):
             token = self.next
         raise ParserError(token, msg)
 
+    def expect(self, of: str = '', has: str = '') -> Token:
+        if of and not self.next.of(of):
+            self.error(f'expected {of}')
+        if has and not self.next.has(has):
+            self.error(f'expected {has}')
+        return self.take()
+
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
 
     def make_block(self) -> list[Token]:
-        if self.take_specific('Operator', '{'):
-            stack = 1
-            tokens = []
-            while stack:
-                next = self.next
-                if next.of('EOF'):
-                    self.error('unexpected EOF')
-                if next.of('Operator'):
-                    if next.has('{'):
-                        stack += 1
-                    elif next.has('}'):
-                        stack -= 1
-                tokens.append(self.take())
-            return tokens
-        else:
-            self.error('expected "{"')
+        self.expect('Operator', '{')
+
+        stack = 1
+        tokens = []
+        while stack:
+            next = self.next
+            if next.of('EOF'):
+                self.error('unexpected EOF')
+            if next.of('Operator'):
+                if next.has('{'):
+                    stack += 1
+                elif next.has('}'):
+                    stack -= 1
+            tokens.append(self.take())
+        return tokens
 
     def make_declaration(self, decl_type: Type, name: Token) -> Declaration:
         tokens: list[Token] = []
@@ -73,8 +79,7 @@ class Node(ABC):
                 tokens.append(self.take())
                 if self.next.of('EOF'):
                     self.error('unexpected EOF')
-            if not self.take_specific('Operator', ';'):
-                self.error('expected ";"')
+            self.expect('Operator', ';')
         else:
             self.error('unexpected token in declaration')
 
@@ -109,8 +114,7 @@ class Node(ABC):
                     continue
                 if self.take_specific('Operator', '<'):
                     held_type = self.make_type()
-                    if not self.take_specific('Operator', '>'):
-                        self.error('expected ">"')
+                    self.expect('Operator', '>')
                 if (ref := self.take_specific('Operator', '&')):
                     tokens.append(ref)
                 self.take_specific('Operator', ',')
@@ -166,7 +170,6 @@ class Namespace(Node):
     interfaces:   list[Interface]
     namespaces:   list[Namespace]
     structs:      list[Struct]
-    unexpected:   list[Token]
     unions:       list[Union]
 
     def __init__(self, tokens: list[Token], name: Identifier | str, parent: Namespace = None):
@@ -180,7 +183,6 @@ class Namespace(Node):
         self.interfaces   = []
         self.namespaces   = []
         self.structs      = []
-        self.unexpected   = []
         self.unions       = []
 
         if self.name == 'global':
@@ -193,14 +195,14 @@ class Namespace(Node):
             if next.of('Special'):
                 if next.has('alias'):
                     self.make_alias()
-                # elif next.has('class'):
-                #     self.make_class()
+                elif next.has('class'):
+                    self.make_class()
                 elif next.has('enum'):
                     self.make_enum()
                 elif next.has('interface'):
                     self.make_interface()
                 elif next.has('mut'):
-                    self.make_declaration()
+                    self.declarations.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
                 elif next.has('namespace'):
                     self.make_namespace()
                 elif next.has('struct'):
@@ -208,9 +210,8 @@ class Namespace(Node):
                 elif next.has('abstract', 'final'):
                     modifier = self.take()
                     match self.next.string:
-                        # case 'class':
-                        #     self.make_class()
-                        #     pass
+                        case 'class':
+                            self.make_class(modifier)
                         case 'interface':
                             self.make_interface(modifier)
                         case 'struct':
@@ -220,27 +221,21 @@ class Namespace(Node):
                 elif next.has('union'):
                     self.make_union()
                 else:
-                    self.unexpected.append(self.take())
+                    self.error('unexpected keyword')
 
             elif self.take_specific('Operator', '}'):
                 pass
 
             elif next.of('Identifier', 'Type'):
-                decl_ret_type = self.make_type()
-                if self.next.of('Identifier'):
-                    name = self.take()
-                    if self.take_specific('Operator', '('):
-                        self.functions.append(self.make_function(decl_ret_type, name))
-                    else:
-                        self.declarations.append(self.make_declaration(decl_ret_type, name))
+                decl_type = self.make_type()
+                name = self.expect('Identifier')
+                if self.take_specific('Operator', '('):
+                    self.functions.append(self.make_function(decl_type, name))
                 else:
-                    self.error('expected identifier')
+                    self.declarations.append(self.make_declaration(decl_type, name))
 
             else:
-                self.unexpected.append(self.take())
-
-        if self.unexpected:
-            print(f'namespace "{self.name}" has {len(self.unexpected)} unexpected tokens')
+                self.error('unexpected token')
 
     def make_alias(self):
         self.take()  # 'alias'
@@ -253,20 +248,29 @@ class Namespace(Node):
         else:
             self.error('unexpected token in alias')
 
-        if self.next.of('Identifier'):
-            new = self.take()
-            if self.take_specific('Operator', ';'):
-                self.aliases.append(Alias(old, new, self))
-            else:
-                self.error('expected ";"')
+        new = self.expect('Identifier')
+        if self.take_specific('Operator', ';'):
+            self.aliases.append(Alias(old, new, self))
         else:
-            self.error('expected identifier')
+            self.error('expected ";"')
 
-    def make_class(self):
-        if self.next.of('Special') and self.next.has('abstract', 'final'):
-            modifier = self.take()
+    def make_class(self, modifier: Token = None):
+        self.take()  # "class"
 
-        ...
+        if self.next.of('Identifier'):
+            name = self.take()
+            inheritance = []
+            if self.take_specific('Operator', ':'):
+                while True:
+                    if self.next.of('Identifier', 'Type'):
+                        inheritance.append(self.make_type())
+                        if self.next.of_has('Operator', '{'):
+                            break
+                    else:
+                        self.error('expected inheritable path')
+            self.classes.append(Class(modifier, name, inheritance, self.make_block(), self))
+        else:
+            self.error('expected class name')
 
     def make_enum(self):
         self.take()  # 'enum'
@@ -309,11 +313,7 @@ class Namespace(Node):
         if not self.take_specific('Operator', ')'):
             while True:
                 if self.next.of('Identifier', 'Type'):
-                    decl_type = self.make_type()
-                    if self.next.of('Identifier'):
-                        params.append(self.make_declaration(decl_type, self.take()))
-                    else:
-                        self.error('expected identifier')
+                    params.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
 
                     if self.take_specific('Operator', ','):
                         continue
@@ -336,29 +336,26 @@ class Namespace(Node):
 
         if self.next.of('Type'):
             return_type = Type(self.take())
-            if not self.take_specific('Operator', '>'):
-                self.error('expected ">"')
+            self.expect('Operator', '>')
         elif self.next.of('Identifier'):
             return_type = self.make_type()
             self.take_specific('Operator', '>')
         else:
             self.error('expected identifier or type')
 
-        if self.take_specific('Operator', '<'):
-            param_types: list[Type] = []
-            while True:
-                if self.next.of('Identifier', 'Type') or self.next.of_has('Operator', '@') or self.next.of_has('Special', 'mut'):
-                    param_types.append(self.make_type())
-                elif self.take_specific('Operator', ','):
-                    continue
-                elif self.take_specific('Operator', '>'):
-                    break
-                elif self.next.of('EOF'):
-                    self.error('unexpected EOF')
-                else:
-                    self.error('expected type')
-        else:
-            self.error('expected "<"')
+        self.expect('Operator', '<')
+        param_types: list[Type] = []
+        while True:
+            if self.next.of('Identifier', 'Type') or self.next.of_has('Operator', '@') or self.next.of_has('Special', 'mut'):
+                param_types.append(self.make_type())
+            elif self.take_specific('Operator', ','):
+                continue
+            elif self.take_specific('Operator', '>'):
+                break
+            elif self.next.of('EOF'):
+                self.error('unexpected EOF')
+            else:
+                self.error('expected type')
 
         return FunctionType(first, return_type, param_types)
 
@@ -366,7 +363,7 @@ class Namespace(Node):
         self.take()  # "interface"
 
         if self.next.of('Identifier'):
-            interface_name = self.take()
+            name = self.take()
             inheritance = []
             if self.take_specific('Operator', ':'):
                 while True:
@@ -376,87 +373,76 @@ class Namespace(Node):
                             break
                     else:
                         self.error('expected inheritable path')
-            self.interfaces.append(Interface(modifier, interface_name, inheritance, self.make_block(), self))
+            self.interfaces.append(Interface(modifier, name, inheritance, self.make_block(), self))
         else:
             self.error('expected interface name')
-
 
     def make_namespace(self):
         self.take()  # 'namespace'
 
-        if self.next.of('Identifier'):
-            name = self.take()
-            self.namespaces.append(Namespace(
-                self.make_block() + [Token('EOF', None)], Identifier(name), self
-            ))
-        else:
-            self.error('expected identifier')
+        name = self.expect('Identifier')
+        self.namespaces.append(Namespace(
+            self.make_block() + [Token('EOF', None)], Identifier(name), self
+        ))
 
     def make_struct(self, modifier: Token = None):
         self.take()  # "struct"
 
-        if self.next.of('Identifier'):
-            struct_name = self.take()
-            inheritance = []
-            if self.take_specific('Operator', ':'):
-                while True:
-                    if self.next.of('Identifier', 'Type'):
-                        inheritance.append(self.make_type())
-                        if self.next.of_has('Operator', '{'):
-                            break
-                    else:
-                        self.error('expected inheritable path')
-            self.structs.append(Struct(modifier, struct_name, inheritance, self.make_block(), self))
-        else:
-            self.error('expected struct name')
+        name = self.expect('Identifier')
+        inheritance = []
+        if self.take_specific('Operator', ':'):
+            while True:
+                if self.next.of('Identifier', 'Type'):
+                    inheritance.append(self.make_type())
+                    if self.next.of_has('Operator', '{'):
+                        break
+                else:
+                    self.error('expected inheritable path')
+        self.structs.append(Struct(modifier, name, inheritance, self.make_block(), self))
 
     def make_union(self):
         self.take()  # 'union'
 
-        if self.next.of('Identifier'):
-            union_name = self.take()
-            params = []
-            if self.take_specific('Operator', '<'):
-                ids = set()
-                types = set()
-                while True:
-                    held_type = self.make_type()
-                    if (type_parts := held_type.tokens):
-                        if type_parts[-1].has('.'):
-                            self.error('expected identifier', type_parts[-1])
-                        param_type = ''.join([t.string for t in type_parts])
-                        if param_type in types:
-                            self.error('duplicate union parameter type', type_parts)
-                        types.add(param_type)
-                        if self.next.of('Identifier'):
-                            id = self.take()
-                            if id.string in ids:
-                                self.error('duplicate union parameter name', id)
-                            ids.add(id.string)
-                            params.append(UnionParam(held_type, id))
-                            self.take_specific('Operator', ',')
-                            if self.take_specific('Operator', '>'):
-                                break
-                        else:
-                            self.error('expected identifier')
-                    elif self.take_specific('Operator', '>'):
-                        break
-                if not self.last_of_has('Operator', '>'):
-                    self.error('expected ">"', self.last)
+        name = self.expect('Identifier')
+        params = []
+        if self.take_specific('Operator', '<'):
+            ids = set()
+            types = set()
+            while True:
+                held_type = self.make_type()
+                if (type_parts := held_type.tokens):
+                    if type_parts[-1].has('.'):
+                        self.error('expected identifier', type_parts[-1])
+                    param_type = ''.join([t.string for t in type_parts])
+                    if param_type in types:
+                        self.error('duplicate union parameter type', type_parts)
+                    types.add(param_type)
+                    if self.next.of('Identifier'):
+                        id = self.take()
+                        if id.string in ids:
+                            self.error('duplicate union parameter name', id)
+                        ids.add(id.string)
+                        params.append(UnionParam(held_type, id))
+                        self.take_specific('Operator', ',')
+                        if self.take_specific('Operator', '>'):
+                            break
+                    else:
+                        self.error('expected identifier')
+                elif self.take_specific('Operator', '>'):
+                    break
+            if not self.last_of_has('Operator', '>'):
+                self.error('expected ">"', self.last)
 
-            if self.take_specific('Operator', '{'):
-                tokens = []
-                while not self.take_specific('Operator', '}'):
-                    if self.next.of('EOF'):
-                        self.error('unexpected EOF')
-                    tokens.append(self.take())
-                self.unions.append(Union(params, tokens, union_name, self))
-                return
-            else:
-                self.error('expected "{"')
-
+        if self.take_specific('Operator', '{'):
+            tokens = []
+            while not self.take_specific('Operator', '}'):
+                if self.next.of('EOF'):
+                    self.error('unexpected EOF')
+                tokens.append(self.take())
+            self.unions.append(Union(params, tokens, name, self))
+            return
         else:
-            self.error('expected identifier')
+            self.error('expected "{"')
 
 
 @dataclass
@@ -524,25 +510,17 @@ class Inheritable(Node, ABC):
 
     def make_method(self, modifiers: list[Token]) -> Method:
         return_type = self.make_type()
-
-        if not self.next.of('Identifier'):
-            self.error('expected identifier')
-
-        name = self.take()
+        name = self.expect('Identifier')
 
         params = []
 
-        if not self.take_specific('Operator', '('):
-            self.error('expected "("')
+        self.expect('Operator', '(')
 
         if not self.take_specific('Operator', ')'):
             while True:
                 if self.next.of('Identifier', 'Type') or self.next.of_has('Special', 'mut'):
                     return_type = self.make_type()
-                    if self.next.of('Identifier'):
-                        params.append(self.make_declaration(return_type, self.take()))
-                    else:
-                        self.error('expected identifier')
+                    params.append(self.make_declaration(return_type, self.expect('Identifier')))
 
                     if self.take_specific('Operator', ','):
                         continue
@@ -553,20 +531,81 @@ class Inheritable(Node, ABC):
                 else:
                     self.error('expected type')
 
-        if self.take_specific('Operator', ';'):
-            return Method(modifiers, return_type, name, params, [], self)
-        else:
-            return Method(modifiers, return_type, name, params, self.make_block(), self)
+
+        return Method(
+            modifiers,
+            return_type,
+            name,
+            params,
+            [] if self.take_specific('Operator', ';') else self.make_block(),
+            self
+        )
 
 
 @dataclass
 class Class(Inheritable):
-    def __init__(self, tokens: list[Token], name: Token, parent: Namespace):
-        super().__init__(tokens, Identifier(name), parent)
-        ...
+    def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
+        super().__init__(modifier, name, inheritance, tokens, parent)
 
-    def __repr__(self):
-        return f'Class[ ]'
+        if self.take_specific('Special', 'override'):
+            self.expect('Operator', '{')
+
+            while not self.take_specific('Operator', '}'):  # TODO DRY
+                mods = []
+                if self.next.of('Special'):
+                    if self.next.has('private', 'protected', 'final'):
+                        mods.append(self.take())
+                        if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                            mods.append(self.take())
+                    else:
+                        self.error('unexpected keyword')
+
+                if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                    index = self.index
+                    self.make_type()
+                    self.expect('Identifier')
+                    if self.take_specific('Operator', '('):
+                        self.index = index
+                        self.override_methods.append(self.make_method(mods))
+                    else:
+                        self.index = index
+                        self.override_members.append(self.make_member(mods))
+                elif self.take_specific('Operator', ';'):
+                    pass
+                else:
+                    self.error('expected type')
+
+        while not self.take_specific('Operator', '}'):
+            mods = []
+            if self.next.of('Special'):
+                if self.next.has('private', 'protected', 'final'):
+                    mods.append(self.take())
+                    if self.last.has('protected') and self.next.of_has('Special', 'final'):
+                        mods.append(self.take())
+                else:
+                    self.error('unexpected keyword')
+
+            if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                index = self.index
+                self.make_type()
+                self.expect('Identifier')
+                if self.take_specific('Operator', '('):
+                    self.index = index
+                    self.methods.append(self.make_method(mods))
+                else:
+                    self.index = index
+                    self.members.append(self.make_member(mods))
+            elif self.take_specific('Operator', ';'):
+                pass
+            else:
+                self.error('expected type')
+
+    def __repr__(self) -> str:
+        mod = 'abstract' if self.abstract else 'final' if self.final else ''
+        return f'Class[ {f'{mod} ' if mod else ''}{
+            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
+            ', '.join([m.__repr__() for m in self.members])} > < {
+            ', '.join([m.__repr__() for m in self.methods])} > ]'
 
 
 @dataclass
@@ -715,32 +754,29 @@ class Interface(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
 
-        while not self.take_specific('Operator', '}'):
-            if self.take_specific('Special', 'override'):
-                if not self.take_specific('Operator', '{'):
-                    self.error('expected "{"')
-                while not self.take_specific('Operator', '}'):  # TODO DRY
-                    mods = []
-                    if self.next.of('Special'):
-                        if self.next.has('private', 'protected', 'final'):
+        if self.take_specific('Special', 'override'):
+            self.expect('Operator', '{')
+
+            while not self.take_specific('Operator', '}'):  # TODO DRY
+                mods = []
+                if self.next.of('Special'):
+                    if self.next.has('private', 'protected', 'final'):
+                        mods.append(self.take())
+                        if self.last.has('protected') and self.next.of_has('Special', 'final'):
                             mods.append(self.take())
-                            if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                                mods.append(self.take())
-                        else:
-                            self.error('unexpected keyword')
-
-                    if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
-                        self.override_methods.append(self.make_method(mods))
-                    elif self.take_specific('Operator', ';'):
-                        pass
-                    elif self.take_specific('Operator', '}'):
-                        break
                     else:
-                        self.error('expected type')
+                        self.error('unexpected keyword')
 
-            if self.take_specific('Operator', '}'):
-                break
+                if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                    self.override_methods.append(self.make_method(mods))
+                elif self.take_specific('Operator', ';'):
+                    pass
+                elif self.take_specific('Operator', '}'):
+                    break
+                else:
+                    self.error('expected type')
 
+        while not self.take_specific('Operator', '}'):
             mods = []
             if self.next.of('Special'):
                 if self.next.has('private', 'protected', 'final'):
@@ -866,27 +902,27 @@ class Struct(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
 
-        while not self.take_specific('Operator', '}'):
-            if self.take_specific('Special', 'override'):
-                if not self.take_specific('Operator', '{'):
-                    self.error('expected "{"')
-                while not self.take_specific('Operator', '}'):  # TODO DRY
-                    mods = []
-                    if self.next.of('Special'):
-                        if self.next.has('private', 'protected', 'final'):
+        if self.take_specific('Special', 'override'):
+            self.expect('Operator', '{')
+
+            while not self.take_specific('Operator', '}'):  # TODO DRY
+                mods = []
+                if self.next.of('Special'):
+                    if self.next.has('private', 'protected', 'final'):
+                        mods.append(self.take())
+                        if self.last.has('protected') and self.next.of_has('Special', 'final'):
                             mods.append(self.take())
-                            if self.last.has('protected') and self.next.of_has('Special', 'final'):
-                                mods.append(self.take())
-                        else:
-                            self.error('unexpected keyword')
-
-                    if self.next.of('Identifier', 'Type'):
-                        self.override_members.append(self.make_member(mods))
-                    elif self.take_specific('Operator', ';'):
-                        pass
                     else:
-                        self.error('expected type')
+                        self.error('unexpected keyword')
 
+                if self.next.of('Identifier', 'Type'):
+                    self.override_members.append(self.make_member(mods))
+                elif self.take_specific('Operator', ';'):
+                    pass
+                else:
+                    self.error('expected type')
+
+        while not self.take_specific('Operator', '}'):
             mods = []
             if self.next.of('Special'):
                 if self.next.has('private', 'protected', 'final'):
@@ -950,8 +986,7 @@ class Union(Node):
                                 break
                         if not found:
                             self.error('union parameter not found', held)
-                        if not self.take_specific('Operator', ')'):
-                            self.error('expected ")"')
+                        self.expect('Operator', ')')
                         self.take_specific('Operator', ',')
                     else:
                         self.error('expected identifier')

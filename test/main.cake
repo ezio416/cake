@@ -1,11 +1,17 @@
 alias i32 int;  // a comment
 alias <std.dict<int>&><i8, mut u16&, @type> func;
 
-// class C : I, S {
-//     void $init() {
-//         std.print(4);
-//     }
-// }
+class C : I, S {
+    override {
+        private void hello();
+    }
+
+    i32 x = 4;
+
+    void $init() {
+        std.print(x);
+    }
+}
 
 enum E {
     a = 3,
