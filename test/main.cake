@@ -3,7 +3,7 @@ alias <std.dict<int>&><i8, mut u16&, @type> func;
 
 class C : I, S {
     override {
-        private void hello();
+        private void hello() {}
     }
 
     i32 x = 4;

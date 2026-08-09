@@ -829,6 +829,14 @@ class Method(Member, Function):
         Member.__init__(self, modifiers, None, name, tokens, parent)
         Function.__init__(self, return_type, None, params)
 
+        if self.modifiers and not self.tokens:
+            for m in self.modifiers:
+                if m.of('Special'):
+                    if m.has('final'):
+                        self.error('abstract methods cannot be final', m)
+                    if m.has('private'):
+                        self.error('abstract methods cannot be private', m)
+
         ...  # TODO method body
 
     def __repr__(self) -> str:
