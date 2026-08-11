@@ -30,7 +30,7 @@ void add(i32 i, i8 j) {
 }
 
 interface I {
-    void hello();
+    void hello() { }
     std.string bye() { return ""; }
     final i32 world(i8 i) { return 42; }
 }

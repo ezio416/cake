@@ -661,13 +661,14 @@ class Function(Node):
         tokens:      list[Token] = [],
         parent:      Namespace   = None
     ):
+        self.return_type = return_type
         if name is not None:
             super().__init__(tokens, Identifier(name), parent)
-        self.return_type = return_type
-
         self.params = params
         for p in self.params:
             p.parent = self
+        self.tokens = tokens
+        self.parent = parent
 
         ...  # TODO function body
 
@@ -802,11 +803,35 @@ class Interface(Inheritable):
 
 @dataclass
 class Member(Declaration):
+    final:     Token | None
     modifiers: list[Token]
+    private:   Token | None
+    protected: Token | None
 
-    def __init__(self, modifiers: list[Token], var_type: Type, name: Token, tokens: list[Token], parent: Inheritable):
+    def __init__(
+        self,
+        modifiers: list[Token],
+        var_type:  Type,
+        name:      Token,
+        tokens:    list[Token],
+        parent:    Inheritable
+    ):
         super().__init__(var_type, name, tokens, parent)
         self.modifiers = modifiers
+
+        self.final     = None
+        self.private   = None
+        self.protected = None
+        for m in self.modifiers:
+            if m.has('final'):
+                self.final = m
+            elif m.has('private'):
+                self.private = m
+            elif m.has('protected'):
+                self.protected = m
+
+        if not tokens:
+            return
 
         ...  # TODO expression
 
@@ -817,6 +842,8 @@ class Member(Declaration):
 
 @dataclass
 class Method(Member, Function):
+    abstract: bool
+
     def __init__(
         self,
         modifiers:   list[Token],
@@ -826,16 +853,16 @@ class Method(Member, Function):
         tokens:      list[Token],
         parent:      Class | Interface
     ):
-        Member.__init__(self, modifiers, None, name, tokens, parent)
-        Function.__init__(self, return_type, None, params)
+        Member.__init__(self, modifiers, None, name, [], parent)
+        Function.__init__(self, return_type, None, params, tokens)
 
-        if self.modifiers and not self.tokens:
-            for m in self.modifiers:
-                if m.of('Special'):
-                    if m.has('final'):
-                        self.error('abstract methods cannot be final', m)
-                    if m.has('private'):
-                        self.error('abstract methods cannot be private', m)
+        self.abstract = not self.tokens
+
+        if self.abstract:
+            if self.final:
+                self.error('abstract methods cannot be final', self.final)
+            if self.private:
+                self.error('abstract methods cannot be private', self.private)
 
         ...  # TODO method body
 
