@@ -14,7 +14,7 @@ class Node(ABC):
     tokens: list[Token]
 
     @property
-    def last(self) -> Token:  # TODO remove lookbehind
+    def last(self) -> Token:
         return self.tokens[self.index - 1] if self.index > 0 else None
 
     @property
@@ -306,24 +306,22 @@ class Namespace(Node):
     def make_function(self, return_type: Type, name: Token) -> Function:
         params = []
 
-        if not self.take_specific('Operator', ')'):
-            while True:
-                if self.next.of('Identifier', 'Type'):
-                    params.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
+        while not self.take_specific('Operator', ')'):
+            if self.next.of('Identifier', 'Type'):
+                params.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
 
-                    if self.take_specific('Operator', ','):
-                        continue
-                    if self.take_specific('Operator', ')'):
-                        break
-                elif self.take_specific('Operator', ')'):
-                    break
-                else:
-                    self.error('expected type')
+                if self.take_specific('Operator', ','):
+                    continue
+            else:
+                self.error('expected type')
 
-        if self.take_specific('Operator', ';'):
-            return Function(return_type, name, params, [], self)
-
-        return Function(return_type, name, params, self.make_block(), self)
+        return Function(
+            return_type,
+            name,
+            params,
+            [] if self.take_specific('Operator', ';') else self.make_block(),
+            self
+        )
 
     def make_function_type(self) -> FunctionType:
         first = self.take()  # "<"
@@ -371,7 +369,7 @@ class Namespace(Node):
         self.interfaces.append(Interface(modifier, name, inheritance, self.make_block(), self))
 
     def make_namespace(self):
-        self.take()  # 'namespace'
+        self.take()  # "namespace"
 
         name = self.expect('Identifier')
         self.namespaces.append(Namespace(
@@ -442,7 +440,7 @@ class BareNamespace(Namespace):
         super().__init__([], name, parent)
 
     def __repr__(self) -> str:
-        return f'BareNamespace[ ]'  # TODO
+        return f'BareNamespace[ ]'  # TODO bare ns repr
 
 
 @dataclass
@@ -575,13 +573,13 @@ class Class(Inheritable):
 
 @dataclass
 class Declaration(Node):
+    rval:     Expression | None
     var_type: Type
 
     def __init__(self, var_type: Type, name: Token, tokens: list[Token], parent: Node):
         Node.__init__(self, tokens, Identifier(name), parent)
         self.var_type = var_type
-
-        ...  # TODO expression
+        self.rval = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
         return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
@@ -611,6 +609,18 @@ class EnumElement(Node):
 
     def __repr__(self) -> str:
         return f'EnumElement[ {self.name} = {self.value} ]'
+
+
+@dataclass
+class Expression(Node):
+    @property
+    def path(self) -> str:
+        return f'{super().path}$rval'
+
+    def __init__(self, tokens: list[Token], parent: Node):
+        super().__init__(tokens, parent=parent)
+
+        ...  # TODO parse expression
 
 
 @dataclass
@@ -780,11 +790,6 @@ class Member(Declaration):
             elif m.has('protected'):
                 self.protected = m
 
-        if not tokens:
-            return
-
-        ...  # TODO expression
-
     def __repr__(self) -> str:
         return f'Member[ {f'< {' '.join([m.string for m in self.modifiers])} > ' if self.modifiers else ''}{
             self.var_type} {self.name} ]'
@@ -881,7 +886,7 @@ class StdNamespace(BareNamespace):
         super().__init__('std', parent)
 
     def __repr__(self) -> str:
-        return f'StdNamespace[ ]'  # TODO
+        return f'StdNamespace[ ]'  # TODO std ns repr
 
 
 @dataclass
