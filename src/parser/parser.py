@@ -157,7 +157,7 @@ class Alias(Node):
         self.old = old
 
     def __repr__(self) -> str:
-        return f'Alias[ "{self.old.name}" -> "{self.path}" ]'
+        return f'Alias[{self.old.name} {self.path}]'
 
 
 @dataclass
@@ -230,6 +230,9 @@ class Namespace(Node):
 
             else:
                 self.error('unexpected token')
+
+    def __repr__(self) -> str:
+        return f'Namespace[{self.name}]'  # TODO ns repr
 
     def make_alias(self):
         self.take()  # "alias"
@@ -421,7 +424,7 @@ class BareNamespace(Namespace):
         super().__init__([], name, parent)
 
     def __repr__(self) -> str:
-        return f'BareNamespace[ ]'  # TODO bare ns repr
+        return f'BareNamespace[]'  # TODO bare ns repr
 
 
 @dataclass
@@ -545,11 +548,11 @@ class Class(Inheritable):
         inner(self.members, self.methods)
 
     def __repr__(self) -> str:
-        mod = 'abstract' if self.abstract else 'final' if self.final else ''
-        return f'Class[ {f'{mod} ' if mod else ''}{
-            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
-            ', '.join([m.__repr__() for m in self.members])} > < {
-            ', '.join([m.__repr__() for m in self.methods])} > ]'
+        mod = 'abstract ' if self.abstract else 'final ' if self.final else ''
+        inheritance = f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''
+        members = ', '.join([repr(m) for m in self.members])
+        methods = ', '.join([repr(m) for m in self.methods])
+        return f'Class[{mod}{self.name}{inheritance} <{members}> <{methods}>]'
 
 
 @dataclass
@@ -563,7 +566,8 @@ class Declaration(Node):
         self.rval = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
-        return f'Declaration[ {self.var_type} {self.name}{f' = {' '.join([t.string for t in self.tokens])}' if self.tokens else ''} ]'
+        rval = f' <{self.rval}>' if self.rval else ''
+        return f'Declaration[{self.var_type} {self.name}{rval}]'
 
 
 @dataclass
@@ -577,7 +581,7 @@ class Enum(Node):
             e.parent = self
 
     def __repr__(self) -> str:
-        return f'Enum[ {self.path} < {self.elements} > ]'
+        return f'Enum[{self.path} <{self.elements}>]'
 
 
 @dataclass
@@ -589,7 +593,7 @@ class EnumElement(Node):
         self.value = value
 
     def __repr__(self) -> str:
-        return f'EnumElement[ {self.name} = {self.value} ]'
+        return f'EnumElement[{self.name} = {self.value}]'
 
 
 @dataclass
@@ -602,6 +606,10 @@ class Expression(Node):
         super().__init__(tokens, parent=parent)
 
         ...  # TODO parse expression
+
+    def __repr__(self) -> str:
+        tokens = ' '.join([t.string for t in self.tokens])
+        return f'Expression[{tokens}]'
 
 
 @dataclass
@@ -629,8 +637,8 @@ class Function(Node):
         ...  # TODO function body
 
     def __repr__(self) -> str:
-        return f'Function[ {self.return_type} {self.name}{
-            f' < {', '.join([p.__repr__() for p in self.params])} >' if self.params else ''} ]'
+        params = f' <{', '.join([p.__repr__() for p in self.params])}>' if self.params else ''
+        return f'Function[{self.return_type} {self.name}{params}]'
 
 
 @dataclass
@@ -645,7 +653,7 @@ class Identifier:
         self.name  = token.string
 
     def __repr__(self) -> str:
-        return f'Identifier[ {self.name} ]'
+        return f'Identifier[{self.name}]'
 
     def __str__(self) -> str:
         return self.name
@@ -684,7 +692,7 @@ class Type(Identifier):
                 self.name += '&'
 
     def __repr__(self) -> str:
-        return f'Type[ {self.name} ]'
+        return f'Type[{self.name}]'
 
 
 @dataclass
@@ -703,7 +711,7 @@ class FunctionType(Type):
         self.name = f'<{self.return_type}><{', '.join([t.name for t in self.param_types])}>'
 
     def __repr__(self) -> str:
-        return f'FunctionType[ {self.return_type} < {', '.join([t.name for t in self.param_types])} > ]'
+        return f'FunctionType[{self.name}]'
 
 
 @dataclass
@@ -736,10 +744,10 @@ class Interface(Inheritable):
         inner(self.methods)
 
     def __repr__(self) -> str:
-        mod = 'abstract' if self.abstract else 'final' if self.final else ''
-        return f'Interface[ {f'{mod} ' if mod else ''}{
-            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
-            ', '.join([m.__repr__() for m in self.methods])} > ]'
+        mod = 'abstract ' if self.abstract else 'final ' if self.final else ''
+        inheritance = f' : {f', '.join([repr(i) for i in self.inheritance])}' if self.inheritance else ''
+        methods = ', '.join([repr(m) for m in self.methods])
+        return f'Interface[{mod}{self.name}{inheritance} <{methods}>]'
 
 
 @dataclass
@@ -772,8 +780,8 @@ class Member(Declaration):
                 self.protected = m
 
     def __repr__(self) -> str:
-        return f'Member[ {f'< {' '.join([m.string for m in self.modifiers])} > ' if self.modifiers else ''}{
-            self.var_type} {self.name} ]'
+        modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
+        return f'Member[{modifiers}{self.var_type} {self.name}]'
 
 
 @dataclass
@@ -803,8 +811,8 @@ class Method(Member, Function):
         ...  # TODO method body
 
     def __repr__(self) -> str:
-        return f'Method[{f' < {' '.join([m.string for m in self.modifiers])} >' if self.modifiers else ''}{
-            Function.__repr__(self).replace('Function[', '')}'
+        modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
+        return f'Method[{modifiers}{Function.__repr__(self).replace('Function[', '')}'
 
 
 @dataclass
@@ -846,11 +854,37 @@ class Parser:
             for a in self.global_ns.aliases:
                 f.write(f'\t{repr(a)}\n')
 
+            f.write('classes:\n')
+            for c in self.global_ns.classes:
+                f.write(f'\t{repr(c)}\n')
+
+            f.write('declarations:\n')
+            for d in self.global_ns.declarations:
+                f.write(f'\t{repr(d)}\n')
+
             f.write('enums:\n')
             for e in self.global_ns.enums:
                 f.write(f'\t{repr(e)}\n')
 
-            ...  # TODO the rest
+            f.write('functions:\n')
+            for fn in self.global_ns.functions:
+                f.write(f'\t{repr(fn)}\n')
+
+            f.write('interfaces:\n')
+            for i in self.global_ns.interfaces:
+                f.write(f'\t{repr(i)}\n')
+
+            f.write('namespaces:\n')
+            for n in self.global_ns.namespaces:
+                f.write(f'\t{repr(n)}\n')
+
+            f.write('structs:\n')
+            for s in self.global_ns.structs:
+                f.write(f'\t{repr(s)}\n')
+
+            f.write('unions:\n')
+            for u in self.global_ns.unions:
+                f.write(f'\t{repr(u)}\n')
 
 
 class ParserError(LanguageError):
@@ -867,7 +901,7 @@ class StdNamespace(BareNamespace):
         super().__init__('std', parent)
 
     def __repr__(self) -> str:
-        return f'StdNamespace[ ]'  # TODO std ns repr
+        return f'StdNamespace[]'  # TODO std ns repr
 
 
 @dataclass
@@ -900,10 +934,10 @@ class Struct(Inheritable):
         inner(self.members)
 
     def __repr__(self) -> str:
-        mod = 'abstract' if self.abstract else 'final' if self.final else ''
-        return f'Struct[ {f'{mod} ' if mod else ''}{
-            self.name}{f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''} < {
-            ', '.join([m.__repr__() for m in self.members])} > ]'
+        mod = 'abstract ' if self.abstract else 'final ' if self.final else ''
+        inheritance = f' : {f', '.join([repr(i) for i in self.inheritance])}' if self.inheritance else ''
+        members = ', '.join([repr(m) for m in self.members])
+        return f'Struct[{mod}{self.name}{inheritance} <{members}>]'
 
 
 @dataclass
@@ -956,7 +990,9 @@ class Union(Node):
                 self.error('unused union parameter', p.held_type.token)
 
     def __repr__(self) -> str:
-        return f'Union[ {self.path} < {', '.join([p.__repr__() for p in self.params])} > < {', '.join([e.__repr__() for e in self.elements])} > ]'
+        params = ', '.join([repr(p) for p in self.params])
+        elements = ', '.join([repr(e) for e in self.elements])
+        return f'Union[{self.path} <{params}> <{elements}>]'
 
 
 @dataclass
@@ -970,7 +1006,8 @@ class UnionElement(Node):
             self.param.element = self
 
     def __repr__(self) -> str:
-        return f'UnionElement[ {self.name}{f'< {self.param.name} >' if self.param else ''} ]'
+        param = f'<{self.param.name}>' if self.param else ''
+        return f'UnionElement[{self.name}{param}]'
 
 
 @dataclass
@@ -986,4 +1023,4 @@ class UnionParam(Node):
         self.used      = False
 
     def __repr__(self) -> str:
-        return f'UnionParam[ {self.held_type} {self.name} ]'
+        return f'UnionParam[{self.held_type} {self.name}]'
