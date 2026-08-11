@@ -106,7 +106,7 @@ class Node(ABC):
             elif self.next.of('Type'):
                 tokens.append(self.take())
             elif self.next.of('Identifier'):
-                if self.last and self.last.of('Identifier', 'Type'):
+                if self.last and self.last.type_starter(False):
                     break
                 tokens.append(self.take())
                 if (dot := self.take_specific('Operator', '.')):
@@ -130,7 +130,7 @@ class Node(ABC):
                 or (i < len(tokens) - 1 and token.of_has('Operator', '&')):
                     self.error('unexpected token', token)
         elif tokens:
-            if not tokens[0].of('Identifier', 'Type'):
+            if not tokens[0].type_starter(False):
                 self.error('unexpected token', tokens[0])
 
         return Type(tokens, held_type)
@@ -195,38 +195,32 @@ class Namespace(Node):
             if next.of('Special'):
                 if next.has('alias'):
                     self.make_alias()
-                elif next.has('class'):
-                    self.make_class()
                 elif next.has('enum'):
                     self.make_enum()
-                elif next.has('interface'):
-                    self.make_interface()
-                elif next.has('mut'):
-                    self.declarations.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
                 elif next.has('namespace'):
                     self.make_namespace()
-                elif next.has('struct'):
-                    self.make_struct()
-                elif next.has('abstract', 'final'):
-                    modifier = self.take()
-                    match self.next.string:
-                        case 'class':
-                            self.make_class(modifier)
-                        case 'interface':
-                            self.make_interface(modifier)
-                        case 'struct':
-                            self.make_struct(modifier)
-                        case _:
-                            self.error('expected inheritable keyword')
                 elif next.has('union'):
                     self.make_union()
+
+                elif next.has('mut'):
+                    self.declarations.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
+
+                elif next.has('class', 'interface', 'struct'):
+                    self.make_inheritable()
+                elif next.has('abstract', 'final'):
+                    modifier = self.take()
+                    if self.next.of('Special') and self.next.has('class', 'interface', 'struct'):
+                        self.make_inheritable(modifier)
+                    else:
+                        self.error('expected inheritable keyword')
+
                 else:
                     self.error('unexpected keyword')
 
             elif self.take_specific('Operator', '}'):
                 pass
 
-            elif next.of('Identifier', 'Type'):
+            elif next.type_starter(False):
                 decl_type = self.make_type()
                 name = self.expect('Identifier')
                 if self.take_specific('Operator', '('):
@@ -238,10 +232,10 @@ class Namespace(Node):
                 self.error('unexpected token')
 
     def make_alias(self):
-        self.take()  # 'alias'
+        self.take()  # "alias"
 
         old: Type = None
-        if self.next.of('Identifier', 'Type'):
+        if self.next.type_starter(False):
             old = self.make_type()
         elif self.next.of_has('Operator', '<'):
             old = self.make_function_type()
@@ -249,65 +243,46 @@ class Namespace(Node):
             self.error('unexpected token in alias')
 
         new = self.expect('Identifier')
-        if self.take_specific('Operator', ';'):
-            self.aliases.append(Alias(old, new, self))
-        else:
-            self.error('expected ";"')
+        self.expect('Operator', ';')
 
-    def make_class(self, modifier: Token = None):
-        self.take()  # "class"
-
-        if self.next.of('Identifier'):
-            name = self.take()
-            inheritance = []
-            if self.take_specific('Operator', ':'):
-                while True:
-                    if self.next.of('Identifier', 'Type'):
-                        inheritance.append(self.make_type())
-                        if self.next.of_has('Operator', '{'):
-                            break
-                    else:
-                        self.error('expected inheritable path')
-            self.classes.append(Class(modifier, name, inheritance, self.make_block(), self))
-        else:
-            self.error('expected class name')
+        self.aliases.append(Alias(old, new, self))
 
     def make_enum(self):
         self.take()  # "enum"
 
         name = self.expect('Identifier')
-        if self.take_specific('Operator', '{'):
-            elements: list[EnumElement] = []
-            prev_value = -1
-            while True:
-                if self.next.of('Identifier'):
-                    element_name = self.take()
-                    if self.take_specific('Operator', ','):
-                        elements.append(EnumElement(element_name))
-                        prev_value += 1
-                    elif self.take_specific('Operator', '}'):
-                        elements.append(EnumElement(element_name))
-                        break
-                    elif self.take_specific('Operator', '='):
-                        if self.next.of('Number'):
-                            value = int(self.take().string)
-                            prev_value = value
-                            elements.append(EnumElement(element_name, value))
-                        self.take_specific('Operator', ',')
-                    else:
-                        self.error('unexpected token in enum')
+        self.expect('Operator', '{')
+        elements: list[EnumElement] = []
+        prev_value = -1
+        while True:
+            if self.next.of('Identifier'):
+                element_name = self.take()
+                if self.take_specific('Operator', ','):
+                    elements.append(EnumElement(element_name))
+                    prev_value += 1
                 elif self.take_specific('Operator', '}'):
+                    elements.append(EnumElement(element_name))
                     break
+                elif self.take_specific('Operator', '='):
+                    if self.next.of('Number'):
+                        value = int(self.take().string)
+                        prev_value = value
+                        elements.append(EnumElement(element_name, value))
+                    self.take_specific('Operator', ',')
                 else:
                     self.error('unexpected token in enum')
+            elif self.take_specific('Operator', '}'):
+                break
+            else:
+                self.error('unexpected token in enum')
 
-            self.enums.append(Enum(elements, name, self))
+        self.enums.append(Enum(elements, name, self))
 
     def make_function(self, return_type: Type, name: Token) -> Function:
         params = []
 
         while not self.take_specific('Operator', ')'):
-            if self.next.of('Identifier', 'Type'):
+            if self.next.type_starter(False):
                 params.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
 
                 if self.take_specific('Operator', ','):
@@ -340,7 +315,7 @@ class Namespace(Node):
         self.expect('Operator', '<')
         param_types: list[Type] = []
         while True:
-            if self.next.of('Identifier', 'Type') or self.next.of_has('Operator', '@') or self.next.of_has('Special', 'mut'):
+            if self.next.type_starter() or self.next.of_has('Operator', '@'):
                 param_types.append(self.make_type())
             elif self.take_specific('Operator', ','):
                 continue
@@ -353,20 +328,44 @@ class Namespace(Node):
 
         return FunctionType(first, return_type, param_types)
 
-    def make_interface(self, modifier: Token = None):
-        self.take()  # "interface"
+    def make_inheritable(self, modifier: Token = None):
+        arr = None
+        cls = None
 
-        name = self.expect('Identifier')
-        inheritance = []
-        if self.take_specific('Operator', ':'):
-            while True:
-                if self.next.of('Identifier', 'Type'):
-                    inheritance.append(self.make_type())
-                    if self.next.of_has('Operator', '{'):
-                        break
-                else:
-                    self.error('expected inheritable path')
-        self.interfaces.append(Interface(modifier, name, inheritance, self.make_block(), self))
+        match self.take().string:
+            case 'class':
+                arr = self.classes
+                cls = Class
+            case 'interface':
+                arr = self.interfaces
+                cls = Interface
+            case 'struct':
+                arr = self.structs
+                cls = Struct
+
+        arr.append(cls(
+            modifier,
+            self.expect('Identifier'),
+            self.make_inheritance(),
+            self.make_block(),
+            self
+        ))
+
+    def make_inheritance(self) -> list[Type]:
+        ret = []
+
+        if not self.take_specific('Operator', ':'):
+            return ret
+
+        while True:
+            if self.next.type_starter(False):
+                ret.append(self.make_type())
+                if self.next.of_has('Operator', '{'):
+                    break
+            else:
+                self.error('expected inheritable path')
+
+        return ret
 
     def make_namespace(self):
         self.take()  # "namespace"
@@ -375,21 +374,6 @@ class Namespace(Node):
         self.namespaces.append(Namespace(
             self.make_block() + [Token('EOF', None)], Identifier(name), self
         ))
-
-    def make_struct(self, modifier: Token = None):
-        self.take()  # "struct"
-
-        name = self.expect('Identifier')
-        inheritance = []
-        if self.take_specific('Operator', ':'):
-            while True:
-                if self.next.of('Identifier', 'Type'):
-                    inheritance.append(self.make_type())
-                    if self.next.of_has('Operator', '{'):
-                        break
-                else:
-                    self.error('expected inheritable path')
-        self.structs.append(Struct(modifier, name, inheritance, self.make_block(), self))
 
     def make_union(self):
         self.take()  # "union"
@@ -408,17 +392,14 @@ class Namespace(Node):
                     if param_type in types:
                         self.error('duplicate union parameter type', type_parts)
                     types.add(param_type)
-                    if self.next.of('Identifier'):
-                        id = self.take()
-                        if id.string in ids:
-                            self.error('duplicate union parameter name', id)
-                        ids.add(id.string)
-                        params.append(UnionParam(held_type, id))
-                        self.take_specific('Operator', ',')
-                        if self.take_specific('Operator', '>'):
-                            break
-                    else:
-                        self.error('expected identifier')
+                    id = self.expect('Identifier')
+                    if id.string in ids:
+                        self.error('duplicate union parameter name', id)
+                    ids.add(id.string)
+                    params.append(UnionParam(held_type, id))
+                    self.take_specific('Operator', ',')
+                    if self.take_specific('Operator', '>'):
+                        break
                 elif self.take_specific('Operator', '>'):
                     break
             if not self.last_of_has('Operator', '>'):
@@ -430,8 +411,8 @@ class Namespace(Node):
             if self.next.of('EOF'):
                 self.error('unexpected EOF')
             tokens.append(self.take())
+
         self.unions.append(Union(params, tokens, name, self))
-        return
 
 
 @dataclass
@@ -503,7 +484,7 @@ class Inheritable(Node, ABC):
 
         if not self.take_specific('Operator', ')'):
             while True:
-                if self.next.of('Identifier', 'Type') or self.next.of_has('Special', 'mut'):
+                if self.next.type_starter():
                     return_type = self.make_type()
                     params.append(self.make_declaration(return_type, self.expect('Identifier')))
 
@@ -542,7 +523,7 @@ class Class(Inheritable):
                     else:
                         self.error('unexpected keyword')
 
-                if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                if self.next.type_starter():
                     index = self.index
                     self.make_type()
                     self.expect('Identifier')
@@ -741,7 +722,7 @@ class Interface(Inheritable):
                     else:
                         self.error('unexpected keyword')
 
-                if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                if self.next.type_starter():
                     methods.append(self.make_method(mods))
                 elif self.take_specific('Operator', ';'):
                     pass
@@ -905,7 +886,7 @@ class Struct(Inheritable):
                     else:
                         self.error('unexpected keyword')
 
-                if self.next.of_has('Special', 'mut') or self.next.of('Identifier', 'Type'):
+                if self.next.type_starter():
                     members.append(self.make_member(mods))
                 elif self.take_specific('Operator', ';'):
                     pass
