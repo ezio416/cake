@@ -29,6 +29,10 @@ class Node(ABC):
             return f'global.{self.name}'
         return f'{self.parent.path}.{self.name}'
 
+    @property
+    def token(self) -> Token | None:
+        return self.tokens[0] if self.tokens else None
+
     def __init__(self, tokens: list[Token] = [], name: Identifier | str = '', parent: Node = None):
         self.tokens = tokens
         self.name   = name
@@ -51,6 +55,22 @@ class Node(ABC):
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
 
+    def make_alias(self) -> Alias:
+        self.take()  # "alias"
+
+        old: Type = None
+        if self.next.type_starter(False):
+            old = self.make_type()
+        elif self.next.of_has('Operator', '<'):
+            old = self.make_function_type()
+        else:
+            self.error('unexpected token in alias')
+
+        new = self.expect('Identifier')
+        self.expect('Operator', ';')
+
+        return Alias(old, new, self)
+
     def make_block(self) -> list[Token]:
         self.expect('Operator', '{')
 
@@ -68,7 +88,9 @@ class Node(ABC):
             tokens.append(self.take())
         return tokens
 
-    def make_declaration(self, decl_type: Type, name: Token) -> Declaration:
+    def make_declaration(self) -> Declaration:
+        decl_type = self.make_type()
+        name = self.expect('Identifier')
         tokens: list[Token] = []
 
         if self.next.of('Operator') and self.next.has(';', ',', ')'):
@@ -193,29 +215,23 @@ class Namespace(Node):
 
         while not ((next := self.next).of('EOF')):
             if next.of('Special'):
-                if next.has('alias'):
-                    self.make_alias()
-                elif next.has('enum'):
-                    self.make_enum()
-                elif next.has('namespace'):
-                    self.make_namespace()
-                elif next.has('union'):
-                    self.make_union()
-
-                elif next.has('mut'):
-                    self.declarations.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
-
-                elif next.has('class', 'interface', 'struct'):
-                    self.make_inheritable()
-                elif next.has('abstract', 'final'):
-                    modifier = self.take()
-                    if self.next.of('Special') and self.next.has('class', 'interface', 'struct'):
-                        self.make_inheritable(modifier)
-                    else:
-                        self.error('expected inheritable keyword')
-
-                else:
-                    self.error('unexpected keyword')
+                match next.string:
+                    case 'alias':     self.aliases.append(self.make_alias())
+                    case 'enum':      self.make_enum()
+                    case 'mut':       self.declarations.append(self.make_declaration())
+                    case 'namespace': self.make_namespace()
+                    case 'union':     self.make_union()
+                    case _:
+                        if next.has('class', 'interface', 'struct'):
+                            self.make_inheritable()
+                        elif next.has('abstract', 'final'):
+                            modifier = self.take()
+                            if self.next.of('Special') and self.next.has('class', 'interface', 'struct'):
+                                self.make_inheritable(modifier)
+                            else:
+                                self.error('expected inheritable keyword')
+                        else:
+                            self.error('unexpected keyword')
 
             elif self.take_specific('Operator', '}'):
                 pass
@@ -233,22 +249,6 @@ class Namespace(Node):
 
     def __repr__(self) -> str:
         return f'Namespace[{self.name}]'  # TODO ns repr
-
-    def make_alias(self):
-        self.take()  # "alias"
-
-        old: Type = None
-        if self.next.type_starter(False):
-            old = self.make_type()
-        elif self.next.of_has('Operator', '<'):
-            old = self.make_function_type()
-        else:
-            self.error('unexpected token in alias')
-
-        new = self.expect('Identifier')
-        self.expect('Operator', ';')
-
-        self.aliases.append(Alias(old, new, self))
 
     def make_enum(self):
         self.take()  # "enum"
@@ -286,7 +286,7 @@ class Namespace(Node):
 
         while not self.take_specific('Operator', ')'):
             if self.next.type_starter(False):
-                params.append(self.make_declaration(self.make_type(), self.expect('Identifier')))
+                params.append(self.make_declaration())
 
                 if self.take_specific('Operator', ','):
                     continue
@@ -418,13 +418,123 @@ class Namespace(Node):
         self.unions.append(Union(params, tokens, name, self))
 
 
-@dataclass
 class BareNamespace(Namespace):
     def __init__(self, name: Identifier | str, parent: Namespace = None):
         super().__init__([], name, parent)
 
     def __repr__(self) -> str:
         return f'BareNamespace[]'  # TODO bare ns repr
+
+
+@dataclass
+class Block(Node):
+    nodes: list[Node]
+
+    def __init__(self, tokens: list[Token], parent: Node):
+        super().__init__(tokens, '$block', parent)
+        self.nodes = []
+
+        while not self.take_specific('Operator', '}'):
+            next = self.next
+
+            if next.of('Special'):
+                match next.string:
+                    case 'alias':    self.nodes.append(self.make_alias())
+                    case 'break':    self.make_break()
+                    case 'continue': self.make_continue()
+                    case 'del':      self.make_del()
+                    case 'do':       self.make_do()
+                    case 'for':      self.make_for()
+                    case 'if':       self.make_if()
+                    case 'mut':      self.nodes.append(self.make_declaration())
+                    case 'return':   self.make_return()
+                    case 'switch':   self.make_switch()
+                    case 'try':      self.make_try()
+                    case 'while':    self.make_while()
+                    case 'with':     self.make_with()
+                    case _:          self.error('unexpected keyword')
+
+            else:
+                self.error('unexpected token')
+
+    def __repr__(self) -> str:
+        tokens = ' '.join([t.string for t in self.tokens])
+        return f'Block[{tokens}]'
+
+    def make_break(self):
+        self.take()  # "break"
+        num = self.take() if self.next.of('Number') else None
+        self.expect('Operator', ';')
+        self.nodes.append(Break(num, self))
+
+    def make_continue(self):
+        self.take()  # "continue"
+        num = self.take() if self.next.of('Number') else None
+        self.expect('Operator', ';')
+        self.nodes.append(Continue(num, self))
+
+    def make_del(self):
+        self.take()  # "del"
+        name = self.expect('Identifier')
+        self.expect('Operator', ';')
+        self.nodes.append(Del(name, self))
+
+    def make_do(self):
+        self.take()  # "do"
+        block = self.make_block()
+        if self.take_specific('Special', 'while'):
+            ...
+        ...
+
+    def make_for(self):
+        self.take()  # "for"
+        ...
+
+    def make_if(self):
+        self.take()  # "if"
+        ...
+
+    def make_return(self):
+        self.take()  # "return"
+        ...
+
+    def make_switch(self):
+        self.take()  # "switch"
+        ...
+
+    def make_try(self):
+        self.take()  # "try"
+        self.nodes.append(Try(
+            self.make_block(),
+            self.make_block() if self.take_specific('Special', 'catch') else [],
+            self.make_block() if self.take_specific('Special', 'finally') else [],
+            self
+        ))
+
+    def make_while(self):
+        self.take()  # "while"
+        ...
+
+    def make_with(self):
+        self.take()  # "with"
+        ...
+
+
+class Statement(Node, ABC):
+    def __init__(self, tokens: list[Token], parent: Node):
+        Node.__init__(self, tokens, parent=parent)
+
+    def __repr__(self) -> str:
+        tokens = ' '.join([t.string for t in self.tokens])
+        return f'Statement[{tokens}]'
+
+
+class Break(Statement):
+    def __init__(self, number: Token, parent: Block):
+        super().__init__([number], parent)
+
+    def __repr__(self) -> str:
+        return f'Break[{self.token.string if self.token else ''}]'
 
 
 @dataclass
@@ -488,8 +598,7 @@ class Inheritable(Node, ABC):
         if not self.take_specific('Operator', ')'):
             while True:
                 if self.next.type_starter():
-                    return_type = self.make_type()
-                    params.append(self.make_declaration(return_type, self.expect('Identifier')))
+                    params.append(self.make_declaration())
 
                     if self.take_specific('Operator', ','):
                         continue
@@ -510,7 +619,6 @@ class Inheritable(Node, ABC):
         )
 
 
-@dataclass
 class Class(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
@@ -555,6 +663,14 @@ class Class(Inheritable):
         return f'Class[{mod}{self.name}{inheritance} <{members}> <{methods}>]'
 
 
+class Continue(Statement):
+    def __init__(self, number: Token, parent: Block):
+        super().__init__([number], parent)
+
+    def __repr__(self) -> str:
+        return f'Continue[{self.token.string if self.token else ''}]'
+
+
 @dataclass
 class Declaration(Node):
     rval:     Expression | None
@@ -568,6 +684,26 @@ class Declaration(Node):
     def __repr__(self) -> str:
         rval = f' <{self.rval}>' if self.rval else ''
         return f'Declaration[{self.var_type} {self.name}{rval}]'
+
+
+class Del(Statement):
+    def __init__(self, id: Token, parent: Block):
+        super().__init__([id], parent)
+
+    def __repr__(self) -> str:
+        return f'Del[{self.token.string if self.token else ''}]'
+
+
+# @dataclass
+# class Do(Statement):
+#     block: Block
+#     while_expr
+
+#     def __init__(self, tokens, parent):
+#         super().__init__(tokens, parent)
+
+#     def __repr__(self) -> str:
+#         return f'Do[]'  # TODO do repr
 
 
 @dataclass
@@ -596,14 +732,9 @@ class EnumElement(Node):
         return f'EnumElement[{self.name} = {self.value}]'
 
 
-@dataclass
-class Expression(Node):
-    @property
-    def path(self) -> str:
-        return f'{super().path}$rval'
-
+class Expression(Node, ABC):
     def __init__(self, tokens: list[Token], parent: Node):
-        super().__init__(tokens, parent=parent)
+        Node.__init__(self, tokens, '$rval', parent)
 
         ...  # TODO parse expression
 
@@ -614,6 +745,7 @@ class Expression(Node):
 
 @dataclass
 class Function(Node):
+    block:       Block
     params:      list[Declaration]
     return_type: Type
 
@@ -632,6 +764,7 @@ class Function(Node):
         for p in self.params:
             p.parent = self
         self.tokens = tokens
+        self.block = Block(tokens, self)
         self.parent = parent
 
         ...  # TODO function body
@@ -714,7 +847,6 @@ class FunctionType(Type):
         return f'FunctionType[{self.name}]'
 
 
-@dataclass
 class Interface(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
@@ -895,7 +1027,6 @@ class ParserError(LanguageError):
             super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
 
 
-@dataclass
 class StdNamespace(BareNamespace):
     def __init__(self, parent: Namespace = None):
         super().__init__('std', parent)
@@ -904,7 +1035,6 @@ class StdNamespace(BareNamespace):
         return f'StdNamespace[]'  # TODO std ns repr
 
 
-@dataclass
 class Struct(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
@@ -938,6 +1068,22 @@ class Struct(Inheritable):
         inheritance = f' : {f', '.join([repr(i) for i in self.inheritance])}' if self.inheritance else ''
         members = ', '.join([repr(m) for m in self.members])
         return f'Struct[{mod}{self.name}{inheritance} <{members}>]'
+
+
+@dataclass
+class Try(Statement):
+    block:         Block
+    catch_block:   Block | None
+    finally_block: Block | None
+
+    def __init__(self, block: list[Token], catch_block: list[Token], finally_block: list[Token], parent: Block):
+        super().__init__(block + catch_block + finally_block, parent)
+        self.block         = Block(block, self)
+        self.catch_block   = Block(catch_block, self) if catch_block else None
+        self.finally_block = Block(finally_block, self) if finally_block else None
+
+    def __repr__(self) -> str:
+        return f'Try[]'  # TODO try repr
 
 
 @dataclass
@@ -1024,3 +1170,16 @@ class UnionParam(Node):
 
     def __repr__(self) -> str:
         return f'UnionParam[{self.held_type} {self.name}]'
+
+
+# @dataclass
+# class While(Statement):
+#     block: Block
+
+#     def __init__(self, tokens: list[Token], parent: Block):
+#         super().__init__(tokens, parent)
+#         self.block = Block(tokens, self)
+
+#     def __repr__(self) -> str:
+#         tokens = ' '.join([t.string for t in self.tokens])
+#         return f'While[{tokens}]'
