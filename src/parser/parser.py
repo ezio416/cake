@@ -72,22 +72,7 @@ class Node(ABC):
         return Alias(old, new, self)
 
     def make_block(self) -> Block:
-        self.expect('Operator', '{')
-
-        stack = 1
-        tokens = []
-        while stack:
-            next = self.next
-            if next.of('EOF'):
-                self.error('unexpected EOF')
-            if next.of('Operator'):
-                if next.has('{'):
-                    stack += 1
-                elif next.has('}'):
-                    stack -= 1
-            tokens.append(self.take())
-
-        return Block(tokens, self)
+        return self.make_stack(Block, '{', '}')
 
     def make_declaration(self, decl_type: Type = None, name: Token = None) -> Declaration:
         if not decl_type:
@@ -109,6 +94,27 @@ class Node(ABC):
             self.error('unexpected token in declaration')
 
         return Declaration(decl_type, name, tokens, self)
+
+    def make_paren(self) -> Paren:
+        return self.make_stack(Paren, '(', ')')
+
+    def make_stack(self, kind: type, open: str, close: str) -> Node:
+        self.expect('Operator', open)
+
+        stack = 1
+        tokens = []
+        while stack:
+            next = self.next
+            if next.of('EOF'):
+                self.error('unexpected EOF')
+            if next.of('Operator'):
+                if next.has(open):
+                    stack += 1
+                elif next.has(close):
+                    stack -= 1
+            tokens.append(self.take())
+
+        return kind(tokens, self)
 
     def make_type(self) -> Type:
         held_type: Type = None
@@ -486,6 +492,7 @@ class Block(Node):
 
     def make_break(self):
         self.take()  # "break"
+
         tokens = []
         while not self.take_specific('Operator', ';'):
             tokens.append(self.take())
@@ -493,6 +500,7 @@ class Block(Node):
 
     def make_continue(self):
         self.take()  # "continue"
+
         tokens = []
         while not self.take_specific('Operator', ';'):
             tokens.append(self.take())
@@ -500,12 +508,14 @@ class Block(Node):
 
     def make_del(self):
         self.take()  # "del"
+
         name = self.expect('Identifier')
         self.expect('Operator', ';')
         self.nodes.append(Del(name, self))
 
     def make_do(self):
         self.take()  # "do"
+
         block = self.make_block()
         if self.take_specific('Special', 'while'):
             ...
@@ -513,14 +523,26 @@ class Block(Node):
 
     def make_for(self):
         self.take()  # "for"
-        ...  # TODO for
+
+        self.nodes.append(For(self.make_paren(), self.make_block(), self))
 
     def make_if(self):
         self.take()  # "if"
-        ...  # TODO if
+
+        paren = self.make_paren()
+        block = self.make_block()
+        else_ifs = []
+        else_block = None
+        while self.take_specific('Special', 'else'):
+            if self.take_specific('Special', 'if'):
+                else_ifs.append(If(self.make_paren(), self.make_block()))
+                continue
+            else_block = self.make_block()
+        self.nodes.append(If(paren, block, else_ifs, else_block, self))
 
     def make_return(self):
         self.take()  # "return"
+
         tokens = []
         while not self.take_specific('Operator', ';'):
             tokens.append(self.take())
@@ -528,10 +550,12 @@ class Block(Node):
 
     def make_switch(self):
         self.take()  # "switch"
+
         ...  # TODO switch
 
     def make_try(self):
         self.take()  # "try"
+
         self.nodes.append(Try(
             self.make_block().tokens,
             self.make_block().tokens if self.take_specific('Special', 'catch') else [],
@@ -541,10 +565,12 @@ class Block(Node):
 
     def make_while(self):
         self.take()  # "while"
+
         ...  # TODO while
 
     def make_with(self):
         self.take()  # "with"
+
         ...  # TODO with
 
 
@@ -554,7 +580,7 @@ class Statement(Node, ABC):
 
     def __repr__(self) -> str:
         tokens = ' '.join([t.string for t in self.tokens])
-        return f'Statement[{tokens}]'
+        return f'{self.__class__.__name__}[{tokens}]'
 
 
 @dataclass
@@ -608,7 +634,7 @@ class Inheritable(Node, ABC):
         member_type = self.make_type()
         name = self.expect('Identifier')
 
-        tokens: list[Token] = []
+        tokens = []
 
         if self.next.of_has('Operator', ';'):
             tokens.append(self.take())
@@ -748,7 +774,7 @@ class Enum(Node):
     elements: list[EnumElement]
 
     def __init__(self, elements: list[EnumElement], name: Token, parent: Namespace):
-        super().__init__([], Identifier(name), parent)
+        super().__init__(name=Identifier(name), parent=parent)
         self.elements = elements
         for e in self.elements:
             e.parent = self
@@ -777,7 +803,23 @@ class Expression(Node, ABC):
 
     def __repr__(self) -> str:
         tokens = ' '.join([t.string for t in self.tokens])
-        return f'Expression[{tokens}]'
+        return f'{self.__class__.__name__}[{tokens}]'
+
+
+@dataclass
+class ParenStatement(Statement):
+    def __init__(self, paren: Paren, block: Block, parent: Block):
+        super().__init__([], parent)
+        self.paren = paren
+        self.block = block
+
+
+class For(ParenStatement):
+    def __init__(self, paren: Paren, block: Block, parent: Block):
+        super().__init__(paren, block, parent)
+
+    def __repr__(self) -> str:
+        return f'For[{repr(self.paren)} {repr(self.block)}]'
 
 
 @dataclass
@@ -884,6 +926,26 @@ class FunctionType(Type):
         return f'FunctionType[{self.name}]'
 
 
+@dataclass
+class If(ParenStatement):
+    else_ifs:   list[If]
+    else_block: Block | None
+
+    def __init__(
+        self,
+        paren:      Paren,
+        block:      Block,
+        else_ifs:   list[If] = [],
+        else_block: Block    = None,
+        parent:     Block    = None
+    ):
+        super().__init__(paren, block, parent)
+        self.else_ifs = else_ifs
+        for e in else_ifs:
+            e.parent = self
+        self.else_block = else_block
+
+
 class Interface(Inheritable):
     def __init__(self, modifier: Token, name: Token, inheritance: list[Token], tokens: list[Token], parent: Namespace):
         super().__init__(modifier, name, inheritance, tokens, parent)
@@ -982,6 +1044,11 @@ class Method(Member, Function):
     def __repr__(self) -> str:
         modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
         return f'Method[{modifiers}{Function.__repr__(self).replace('Function[', '')}'
+
+
+class Paren(Expression):
+    def __init__(self, tokens: list[Token], parent: Node):
+        super().__init__(tokens, parent)
 
 
 @dataclass
@@ -1125,7 +1192,9 @@ class Try(Statement):
         self.finally_block = Block(finally_block, self) if finally_block else None
 
     def __repr__(self) -> str:
-        return f'Try[]'  # TODO try repr
+        catch_block = f' catch {repr(self.catch_block)}' if self.catch_block else ''
+        finally_block = f' finally {repr(self.finally_block)}' if self.finally_block else ''
+        return f'Try[{repr(self.block)}{catch_block}{finally_block}]'
 
 
 @dataclass
@@ -1188,7 +1257,7 @@ class UnionElement(Node):
     param: UnionParam
 
     def __init__(self, name: Token, parent: Union, param: UnionParam = None):
-        super().__init__([], Identifier(name), parent)
+        super().__init__(name=Identifier(name), parent=parent)
         self.param = param
         if self.param:
             self.param.element = self

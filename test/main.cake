@@ -23,6 +23,20 @@ auto j = 2 >> 7;
 
 void main() {
     // (6 + 7) ** 8 * -9
+
+    if (true) {
+        i8 a;
+    } else if (false) {
+        u8 b;
+    } else if (0) {
+        char c;
+    } else {
+        f64 d;
+    }
+
+    for (i in 0..5) {
+        f32 f;
+    }
 }
 
 i32 add(i32 i, i8 j) {
