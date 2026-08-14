@@ -487,8 +487,8 @@ class Block(Node):
                 self.error('unexpected token')
 
     def __repr__(self) -> str:
-        tokens = ' '.join([t.string for t in self.tokens])
-        return f'Block[{tokens}]'
+        nodes = ' '.join([repr(n) for n in self.nodes])
+        return f'Block[{nodes}]'
 
     def make_break(self):
         self.take()  # "break"
@@ -566,7 +566,7 @@ class Block(Node):
     def make_while(self):
         self.take()  # "while"
 
-        ...  # TODO while
+        self.nodes.append(While(self.make_paren(), self.make_block(), self))
 
     def make_with(self):
         self.take()  # "with"
@@ -721,7 +721,7 @@ class Class(Inheritable):
 
     def __repr__(self) -> str:
         mod = 'abstract ' if self.abstract else 'final ' if self.final else ''
-        inheritance = f' : {f', '.join([i.__repr__() for i in self.inheritance])}' if self.inheritance else ''
+        inheritance = f' : {f', '.join([repr(i) for i in self.inheritance])}' if self.inheritance else ''
         members = ', '.join([repr(m) for m in self.members])
         methods = ', '.join([repr(m) for m in self.methods])
         return f'Class[{mod}{self.name}{inheritance} <{members}> <{methods}>]'
@@ -813,13 +813,13 @@ class ParenStatement(Statement):
         self.paren = paren
         self.block = block
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}[{repr(self.paren)} {repr(self.block)}]'
+
 
 class For(ParenStatement):
     def __init__(self, paren: Paren, block: Block, parent: Block):
         super().__init__(paren, block, parent)
-
-    def __repr__(self) -> str:
-        return f'For[{repr(self.paren)} {repr(self.block)}]'
 
 
 @dataclass
@@ -849,8 +849,8 @@ class Function(Node):
         ...  # TODO function body
 
     def __repr__(self) -> str:
-        params = f' <{', '.join([p.__repr__() for p in self.params])}>' if self.params else ''
-        return f'Function[{self.return_type} {self.name}{params}]'
+        params = f' <{', '.join([repr(p) for p in self.params])}>' if self.params else ''
+        return f'Function[{self.return_type} {self.name}{params} {repr(self.block)}]'
 
 
 @dataclass
@@ -944,6 +944,11 @@ class If(ParenStatement):
         for e in else_ifs:
             e.parent = self
         self.else_block = else_block
+
+    def __repr__(self) -> str:
+        else_ifs = f' Else[{' '.join([repr(e) for e in self.else_ifs])}]' if self.else_ifs else ''
+        else_block = f' Else[{repr(self.else_block)}]' if self.else_block else ''
+        return f'If[{repr(self.paren)} {repr(self.block)}{else_ifs}{else_block}]'
 
 
 class Interface(Inheritable):
@@ -1192,8 +1197,8 @@ class Try(Statement):
         self.finally_block = Block(finally_block, self) if finally_block else None
 
     def __repr__(self) -> str:
-        catch_block = f' catch {repr(self.catch_block)}' if self.catch_block else ''
-        finally_block = f' finally {repr(self.finally_block)}' if self.finally_block else ''
+        catch_block = f' Catch[{repr(self.catch_block)}]' if self.catch_block else ''
+        finally_block = f' Finally[{repr(self.finally_block)}]' if self.finally_block else ''
         return f'Try[{repr(self.block)}{catch_block}{finally_block}]'
 
 
@@ -1283,16 +1288,6 @@ class UnionParam(Node):
         return f'UnionParam[{self.held_type} {self.name}]'
 
 
-# @dataclass
-# class While(Statement):
-#     block: Block
-#     rval:  Expression
-
-#     def __init__(self, tokens: list[Token], parent: Block):
-#         super().__init__(tokens, parent)
-#         self.block = Block(tokens, self)
-#         self.rval = None  # TODO while
-
-#     def __repr__(self) -> str:
-#         tokens = ' '.join([t.string for t in self.tokens])
-#         return f'While[{tokens}]'
+class While(ParenStatement):
+    def __init__(self, paren: Paren, block: Block, parent: Block):
+        super().__init__(paren, block, parent)

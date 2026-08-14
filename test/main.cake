@@ -37,6 +37,10 @@ void main() {
     for (i in 0..5) {
         f32 f;
     }
+
+    while (true) {
+        del std;
+    }
 }
 
 i32 add(i32 i, i8 j) {
