@@ -57,6 +57,10 @@ void main() {
     while (42) {
         u8 u;
     }
+
+    with (std.math.PI) as pi {
+        f64 tau = pi * 2.0;
+    }
 }
 
 i32 add(i32 i, i8 j) {

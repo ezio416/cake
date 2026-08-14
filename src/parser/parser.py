@@ -577,7 +577,11 @@ class Block(Node):
     def make_with(self):
         self.take()  # "with"
 
-        ...  # TODO with
+        expr = self.make_paren()
+        id = None
+        if self.take_specific('Special', 'as'):
+            id = self.expect('Identifier')
+        self.nodes.append(With(expr, id, self.make_block(), self))
 
 
 class Statement(Node, ABC):
@@ -1301,3 +1305,16 @@ class UnionParam(Node):
 class While(ParenStatement):
     def __init__(self, expr: Paren, block: Block, parent: Block):
         super().__init__(expr, block, parent)
+
+
+@dataclass
+class With(ParenStatement):
+    id: Identifier | None
+
+    def __init__(self, expr: ParenStatement, id: Token | None, block: Block, parent: Block):
+        super().__init__(expr, block, parent)
+        self.id = Identifier(id) if id else None
+
+    def __repr__(self) -> str:
+        id = f' as {self.id}' if self.id else ''
+        return f'With[{repr(self.expr)}{id} {repr(self.block)}]'
