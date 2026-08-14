@@ -517,9 +517,15 @@ class Block(Node):
         self.take()  # "do"
 
         block = self.make_block()
-        if self.take_specific('Special', 'while'):
-            ...
-        ...  # TODO do
+        while_paren = None
+        if self.next.of_has('Special', 'while'):
+            index = self.index
+            self.take()  # "while"
+            while_paren = self.make_paren()
+            if not self.take_specific('Operator', ';'):
+                self.index = index
+                while_paren = None
+        self.nodes.append(Do(block, while_paren, self))
 
     def make_for(self):
         self.take()  # "for"
@@ -755,18 +761,19 @@ class Del(Statement):
         return f'Del[{self.token.string if self.token else ''}]'
 
 
-# @dataclass
-# class Do(Statement):
-#     block:      Block
-#     while_expr: While | None
+@dataclass
+class Do(Statement):
+    block:       Block
+    while_paren: Paren | None
 
-#     def __init__(self, tokens, parent):
-#         super().__init__(tokens, parent)
-#         self.block      = None  # TODO do
-#         self.while_expr = None  # TODO do while
+    def __init__(self, block: Block, while_paren: Paren = None, parent: Block = None):
+        super().__init__([], parent)
+        self.block       = block
+        self.while_paren = while_paren
 
-#     def __repr__(self) -> str:
-#         return f'Do[]'  # TODO do repr
+    def __repr__(self) -> str:
+        while_paren = f' While[{repr(self.while_paren)}]' if self.while_paren else ''
+        return f'Do[{repr(self.block)}{while_paren}]'
 
 
 @dataclass

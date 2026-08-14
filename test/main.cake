@@ -41,6 +41,22 @@ void main() {
     while (true) {
         del std;
     }
+
+    do {
+        i8 o;
+    }
+
+    do {
+        i16 p;
+    } while (1);
+
+    do {
+        i32 q;
+    }
+
+    while (42) {
+        u8 u;
+    }
 }
 
 i32 add(i32 i, i8 j) {
