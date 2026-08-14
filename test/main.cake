@@ -9,7 +9,7 @@ class C : I, S {
     i32 x = 4;
 
     void $init() {
-        std.print(x);
+        // std.print(x);
     }
 }
 
@@ -22,10 +22,18 @@ int i;
 auto j = 2 >> 7;
 
 void main() {
-    (6 + 7) ** 8 * -9
+    // (6 + 7) ** 8 * -9
 }
 
-void add(i32 i, i8 j) {
+i32 add(i32 i, i8 j) {
+    del i;
+    try {
+        break 4;
+        continue;
+    } catch {
+        continue 3.14;
+        break;
+    }
     return i + j;
 }
 

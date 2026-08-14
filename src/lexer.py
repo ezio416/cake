@@ -231,5 +231,8 @@ class Token:
     def of_has(self, of: str, has: str) -> bool:
         return self.of(of) and self.has(has)
 
+    def type_starter(self, mut: bool = True) -> bool:
+        return self.of('Identifier', 'Type') or mut and self.of_has('Special', 'mut')
+
     def tree_repr(self, _) -> str:
         return repr(self)

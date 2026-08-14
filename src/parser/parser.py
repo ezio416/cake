@@ -71,7 +71,7 @@ class Node(ABC):
 
         return Alias(old, new, self)
 
-    def make_block(self) -> list[Token]:
+    def make_block(self) -> Block:
         self.expect('Operator', '{')
 
         stack = 1
@@ -86,11 +86,14 @@ class Node(ABC):
                 elif next.has('}'):
                     stack -= 1
             tokens.append(self.take())
-        return tokens
 
-    def make_declaration(self) -> Declaration:
-        decl_type = self.make_type()
-        name = self.expect('Identifier')
+        return Block(tokens, self)
+
+    def make_declaration(self, decl_type: Type = None, name: Token = None) -> Declaration:
+        if not decl_type:
+            decl_type = self.make_type()
+        if not name:
+            name = self.expect('Identifier')
         tokens: list[Token] = []
 
         if self.next.of('Operator') and self.next.has(';', ',', ')'):
@@ -297,7 +300,7 @@ class Namespace(Node):
             return_type,
             name,
             params,
-            [] if self.take_specific('Operator', ';') else self.make_block(),
+            [] if self.take_specific('Operator', ';') else self.make_block().tokens,
             self
         )
 
@@ -350,7 +353,7 @@ class Namespace(Node):
             modifier,
             self.expect('Identifier'),
             self.make_inheritance(),
-            self.make_block(),
+            self.make_block().tokens,
             self
         ))
 
@@ -375,7 +378,7 @@ class Namespace(Node):
 
         name = self.expect('Identifier')
         self.namespaces.append(Namespace(
-            self.make_block() + [Token('EOF', None)], Identifier(name), self
+            self.make_block().tokens + [Token('EOF', None)], Identifier(name), self
         ))
 
     def make_union(self):
@@ -434,6 +437,9 @@ class Block(Node):
         super().__init__(tokens, '$block', parent)
         self.nodes = []
 
+        if isinstance(parent, (Inheritable, Namespace)):
+            return
+
         while not self.take_specific('Operator', '}'):
             next = self.next
 
@@ -454,6 +460,23 @@ class Block(Node):
                     case 'with':     self.make_with()
                     case _:          self.error('unexpected keyword')
 
+            elif next.of('Identifier'):
+                index = self.index
+                try:
+                    self.nodes.append(self.make_declaration())
+                except ParserError:
+                    self.index = index
+                    ...  # TODO make accessor
+
+            elif next.type_starter(False):
+                self.nodes.append(self.make_declaration())
+
+            elif next.of_has('Operator', '{'):
+                self.nodes.append(self.make_block())
+
+            elif self.take_specific('Operator', ';'):
+                pass
+
             else:
                 self.error('unexpected token')
 
@@ -463,15 +486,17 @@ class Block(Node):
 
     def make_break(self):
         self.take()  # "break"
-        num = self.take() if self.next.of('Number') else None
-        self.expect('Operator', ';')
-        self.nodes.append(Break(num, self))
+        tokens = []
+        while not self.take_specific('Operator', ';'):
+            tokens.append(self.take())
+        self.nodes.append(Break(tokens, self))
 
     def make_continue(self):
         self.take()  # "continue"
-        num = self.take() if self.next.of('Number') else None
-        self.expect('Operator', ';')
-        self.nodes.append(Continue(num, self))
+        tokens = []
+        while not self.take_specific('Operator', ';'):
+            tokens.append(self.take())
+        self.nodes.append(Continue(tokens, self))
 
     def make_del(self):
         self.take()  # "del"
@@ -484,40 +509,43 @@ class Block(Node):
         block = self.make_block()
         if self.take_specific('Special', 'while'):
             ...
-        ...
+        ...  # TODO do
 
     def make_for(self):
         self.take()  # "for"
-        ...
+        ...  # TODO for
 
     def make_if(self):
         self.take()  # "if"
-        ...
+        ...  # TODO if
 
     def make_return(self):
         self.take()  # "return"
-        ...
+        tokens = []
+        while not self.take_specific('Operator', ';'):
+            tokens.append(self.take())
+        self.nodes.append(Return(tokens, self))
 
     def make_switch(self):
         self.take()  # "switch"
-        ...
+        ...  # TODO switch
 
     def make_try(self):
         self.take()  # "try"
         self.nodes.append(Try(
-            self.make_block(),
-            self.make_block() if self.take_specific('Special', 'catch') else [],
-            self.make_block() if self.take_specific('Special', 'finally') else [],
+            self.make_block().tokens,
+            self.make_block().tokens if self.take_specific('Special', 'catch') else [],
+            self.make_block().tokens if self.take_specific('Special', 'finally') else [],
             self
         ))
 
     def make_while(self):
         self.take()  # "while"
-        ...
+        ...  # TODO while
 
     def make_with(self):
         self.take()  # "with"
-        ...
+        ...  # TODO with
 
 
 class Statement(Node, ABC):
@@ -529,12 +557,22 @@ class Statement(Node, ABC):
         return f'Statement[{tokens}]'
 
 
-class Break(Statement):
-    def __init__(self, number: Token, parent: Block):
-        super().__init__([number], parent)
+@dataclass
+class SimpleStatement(Statement):
+    rval: Expression | None
+
+    def __init__(self, tokens: list[Token], parent: Block):
+        super().__init__(tokens, parent)
+        self.rval = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
-        return f'Break[{self.token.string if self.token else ''}]'
+        rval = repr(self.rval) if self.rval else ''
+        return f'{self.__class__.__name__}[{rval}]'
+
+
+class Break(SimpleStatement):
+    def __init__(self, tokens: list[Token], parent: Block):
+        super().__init__(tokens, parent)
 
 
 @dataclass
@@ -614,7 +652,7 @@ class Inheritable(Node, ABC):
             return_type,
             name,
             params,
-            [] if self.take_specific('Operator', ';') else self.make_block(),
+            [] if self.take_specific('Operator', ';') else self.make_block().tokens,
             self
         )
 
@@ -663,12 +701,9 @@ class Class(Inheritable):
         return f'Class[{mod}{self.name}{inheritance} <{members}> <{methods}>]'
 
 
-class Continue(Statement):
-    def __init__(self, number: Token, parent: Block):
-        super().__init__([number], parent)
-
-    def __repr__(self) -> str:
-        return f'Continue[{self.token.string if self.token else ''}]'
+class Continue(SimpleStatement):
+    def __init__(self, tokens: list[Token], parent: Block):
+        super().__init__(tokens, parent)
 
 
 @dataclass
@@ -696,11 +731,13 @@ class Del(Statement):
 
 # @dataclass
 # class Do(Statement):
-#     block: Block
-#     while_expr
+#     block:      Block
+#     while_expr: While | None
 
 #     def __init__(self, tokens, parent):
 #         super().__init__(tokens, parent)
+#         self.block      = None  # TODO do
+#         self.while_expr = None  # TODO do while
 
 #     def __repr__(self) -> str:
 #         return f'Do[]'  # TODO do repr
@@ -736,7 +773,7 @@ class Expression(Node, ABC):
     def __init__(self, tokens: list[Token], parent: Node):
         Node.__init__(self, tokens, '$rval', parent)
 
-        ...  # TODO parse expression
+        ...  # TODO expression
 
     def __repr__(self) -> str:
         tokens = ' '.join([t.string for t in self.tokens])
@@ -1027,6 +1064,11 @@ class ParserError(LanguageError):
             super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
 
 
+class Return(SimpleStatement):
+    def __init__(self, tokens: list[Token], parent: Block):
+        super().__init__(tokens, parent)
+
+
 class StdNamespace(BareNamespace):
     def __init__(self, parent: Namespace = None):
         super().__init__('std', parent)
@@ -1175,10 +1217,12 @@ class UnionParam(Node):
 # @dataclass
 # class While(Statement):
 #     block: Block
+#     rval:  Expression
 
 #     def __init__(self, tokens: list[Token], parent: Block):
 #         super().__init__(tokens, parent)
 #         self.block = Block(tokens, self)
+#         self.rval = None  # TODO while
 
 #     def __repr__(self) -> str:
 #         tokens = ' '.join([t.string for t in self.tokens])
