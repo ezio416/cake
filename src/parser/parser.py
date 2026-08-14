@@ -517,15 +517,15 @@ class Block(Node):
         self.take()  # "do"
 
         block = self.make_block()
-        while_paren = None
+        while_expr = None
         if self.next.of_has('Special', 'while'):
             index = self.index
             self.take()  # "while"
-            while_paren = self.make_paren()
+            while_expr = self.make_paren()
             if not self.take_specific('Operator', ';'):
                 self.index = index
-                while_paren = None
-        self.nodes.append(Do(block, while_paren, self))
+                while_expr = None
+        self.nodes.append(Do(block, while_expr, self))
 
     def make_for(self):
         self.take()  # "for"
@@ -535,7 +535,7 @@ class Block(Node):
     def make_if(self):
         self.take()  # "if"
 
-        paren = self.make_paren()
+        expr = self.make_paren()
         block = self.make_block()
         else_ifs = []
         else_block = None
@@ -544,7 +544,7 @@ class Block(Node):
                 else_ifs.append(If(self.make_paren(), self.make_block()))
                 continue
             else_block = self.make_block()
-        self.nodes.append(If(paren, block, else_ifs, else_block, self))
+        self.nodes.append(If(expr, block, else_ifs, else_block, self))
 
     def make_return(self):
         self.take()  # "return"
@@ -763,17 +763,17 @@ class Del(Statement):
 
 @dataclass
 class Do(Statement):
-    block:       Block
-    while_paren: Paren | None
+    block:      Block
+    while_expr: Paren | None
 
-    def __init__(self, block: Block, while_paren: Paren = None, parent: Block = None):
+    def __init__(self, block: Block, while_expr: Paren = None, parent: Block = None):
         super().__init__([], parent)
-        self.block       = block
-        self.while_paren = while_paren
+        self.block      = block
+        self.while_expr = while_expr
 
     def __repr__(self) -> str:
-        while_paren = f' While[{repr(self.while_paren)}]' if self.while_paren else ''
-        return f'Do[{repr(self.block)}{while_paren}]'
+        while_expr = f' While[{repr(self.while_expr)}]' if self.while_expr else ''
+        return f'Do[{repr(self.block)}{while_expr}]'
 
 
 @dataclass
@@ -815,18 +815,21 @@ class Expression(Node, ABC):
 
 @dataclass
 class ParenStatement(Statement):
-    def __init__(self, paren: Paren, block: Block, parent: Block):
+    expr:  Paren
+    block: Block
+
+    def __init__(self, expr: Paren, block: Block, parent: Block):
         super().__init__([], parent)
-        self.paren = paren
+        self.expr  = expr
         self.block = block
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}[{repr(self.paren)} {repr(self.block)}]'
+        return f'{self.__class__.__name__}[{repr(self.expr)} {repr(self.block)}]'
 
 
 class For(ParenStatement):
-    def __init__(self, paren: Paren, block: Block, parent: Block):
-        super().__init__(paren, block, parent)
+    def __init__(self, expr: Paren, block: Block, parent: Block):
+        super().__init__(expr, block, parent)
 
 
 @dataclass
@@ -940,13 +943,13 @@ class If(ParenStatement):
 
     def __init__(
         self,
-        paren:      Paren,
+        expr:       Paren,
         block:      Block,
         else_ifs:   list[If] = [],
         else_block: Block    = None,
         parent:     Block    = None
     ):
-        super().__init__(paren, block, parent)
+        super().__init__(expr, block, parent)
         self.else_ifs = else_ifs
         for e in else_ifs:
             e.parent = self
@@ -955,7 +958,7 @@ class If(ParenStatement):
     def __repr__(self) -> str:
         else_ifs = f' Else[{' '.join([repr(e) for e in self.else_ifs])}]' if self.else_ifs else ''
         else_block = f' Else[{repr(self.else_block)}]' if self.else_block else ''
-        return f'If[{repr(self.paren)} {repr(self.block)}{else_ifs}{else_block}]'
+        return f'If[{repr(self.expr)} {repr(self.block)}{else_ifs}{else_block}]'
 
 
 class Interface(Inheritable):
@@ -1296,5 +1299,5 @@ class UnionParam(Node):
 
 
 class While(ParenStatement):
-    def __init__(self, paren: Paren, block: Block, parent: Block):
-        super().__init__(paren, block, parent)
+    def __init__(self, expr: Paren, block: Block, parent: Block):
+        super().__init__(expr, block, parent)
