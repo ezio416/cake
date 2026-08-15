@@ -61,7 +61,7 @@ enum_def = "enum" id "{" [ enum_elements ] "}" ;
 enum_elements = { enum_element "," } enum_element [ "," ] ;
 enum_element = id [ "=" num_int ] ;
 
-for_stmt = "for" "(" id "in" expression ")" block ;
+for_stmt = "for" "(" type id "in" expression ")" block ;
 
 function_def = function_return id "(" [ function_params ] ")" block ;
 function_return = type | "void" ;
@@ -109,7 +109,7 @@ expression =
 	;
 
 paren_expr = "(" expression ")" ;
-range_expr = expression ".." [ "=" ] expression ;
+range_expr = expression ( ".." | "..=" ) expression ;
 ternary_expr = or_expr [ "?" or_expr ":" expression ] ;
 unwrap_expr = expression "?" ;
 
