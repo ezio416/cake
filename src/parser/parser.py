@@ -1095,19 +1095,16 @@ class Parser:
     global_ns:  Namespace
     output_dir: str
     tokens:     list[Token]
-    tree:       Node
 
     def __init__(self, tokens: list[Token], output_dir: str = ''):
         self.tokens     = tokens
         self.output_dir = output_dir
 
-        self.tree = None
-
     def next(self) -> Token:
         return self.tokens[self.index]
 
     def parse(self) -> None:
-        print(f'parsing {len(self.tokens)} tokens')
+        print(f'parsing {len(self.tokens)} tokens in "global"')
         self.global_ns = Namespace(self.tokens, 'global')
 
         ...  # TODO second pass

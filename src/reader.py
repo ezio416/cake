@@ -20,7 +20,7 @@ class Config:
         if not os.path.isfile(path):
             raise ReaderError(f'missing config file: "{path}"')
 
-        self.path = path
+        self.path = path.replace('\\', '/')
 
         print(f'reading "{self.path}"')
         with open(self.path) as f:
