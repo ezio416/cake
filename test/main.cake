@@ -9,7 +9,7 @@ class C : I, S {
     i32 x = 4;
 
     void $init() {
-        // std.print(x);
+        i32 m = 2;
     }
 }
 

@@ -878,9 +878,7 @@ class Function(Node):
             p.parent = self
         self.tokens = tokens
         self.block = Block(tokens, self)
-        self.parent = parent
-
-        ...  # TODO function body
+        self.parent = self.parent or parent
 
     def __repr__(self) -> str:
         params = f' <{', '.join([repr(p) for p in self.params])}>' if self.params else ''
@@ -1077,8 +1075,6 @@ class Method(Member, Function):
                 self.error('abstract methods cannot be final', self.final)
             if self.private:
                 self.error('abstract methods cannot be private', self.private)
-
-        ...  # TODO method body
 
     def __repr__(self) -> str:
         modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
