@@ -595,15 +595,15 @@ class Statement(Node, ABC):
 
 @dataclass
 class SimpleStatement(Statement):
-    rval: Expression | None
+    expr: Expression | None
 
     def __init__(self, tokens: list[Token], parent: Block):
         super().__init__(tokens, parent)
-        self.rval = Expression(tokens, self) if tokens else None
+        self.expr = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
-        rval = repr(self.rval) if self.rval else ''
-        return f'{self.__class__.__name__}[{rval}]'
+        expr = repr(self.expr) if self.expr else ''
+        return f'{self.__class__.__name__}[{expr}]'
 
 
 class Break(SimpleStatement):
@@ -744,17 +744,17 @@ class Continue(SimpleStatement):
 
 @dataclass
 class Declaration(Node):
-    rval:     Expression | None
+    expr:     Expression | None
     var_type: Type
 
     def __init__(self, var_type: Type, name: Token, tokens: list[Token], parent: Node):
         Node.__init__(self, tokens, Identifier(name), parent)
         self.var_type = var_type
-        self.rval = Expression(tokens, self) if tokens else None
+        self.expr = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
-        rval = f' <{self.rval}>' if self.rval else ''
-        return f'Declaration[{self.var_type} {self.name}{rval}]'
+        expr = f' <{self.expr}>' if self.expr else ''
+        return f'Declaration[{self.var_type} {self.name}{expr}]'
 
 
 class Del(Statement):
@@ -808,7 +808,7 @@ class EnumElement(Node):
 
 class Expression(Node, ABC):
     def __init__(self, tokens: list[Token], parent: Node):
-        Node.__init__(self, tokens, '$rval', parent)
+        Node.__init__(self, tokens, '$expr', parent)
 
         ...  # TODO expression
 
