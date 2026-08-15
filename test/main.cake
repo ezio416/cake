@@ -61,6 +61,18 @@ void main() {
     with (std.math.PI) as pi {
         f64 tau = pi * 2.0;
     }
+
+    switch (num) {
+        case (0) {
+            break;
+        }
+        case (2) {
+            continue;
+        }
+        default {
+            return;
+        }
+    }
 }
 
 i32 add(i32 i, i8 j) {

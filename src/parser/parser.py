@@ -98,7 +98,7 @@ class Node(ABC):
     def make_paren(self) -> Paren:
         return self.make_stack(Paren, '(', ')')
 
-    def make_stack(self, kind: type, open: str, close: str) -> Node:
+    def make_stack(self, kind: type, open: str, close: str) -> Node | list[Token]:
         self.expect('Operator', open)
 
         stack = 1
@@ -114,7 +114,7 @@ class Node(ABC):
                     stack -= 1
             tokens.append(self.take())
 
-        return kind(tokens, self)
+        return kind(tokens, self) if kind else tokens
 
     def make_type(self) -> Type:
         held_type: Type = None
@@ -557,7 +557,7 @@ class Block(Node):
     def make_switch(self):
         self.take()  # "switch"
 
-        ...  # TODO switch
+        self.nodes.append(Switch(self.make_paren(), self.make_stack(None, '{', '}'), self))
 
     def make_try(self):
         self.take()  # "try"
@@ -822,13 +822,16 @@ class ParenStatement(Statement):
     expr:  Paren
     block: Block
 
-    def __init__(self, expr: Paren, block: Block, parent: Block):
+    def __init__(self, expr: Paren, block: Block, parent: Block | Switch):
         super().__init__([], parent)
         self.expr  = expr
         self.block = block
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}[{repr(self.expr)} {repr(self.block)}]'
+        expr = repr(self.expr) if self.expr else ''
+        block = repr(self.block) if self.block else ''
+        space = ' ' if expr and block else ''
+        return f'{self.__class__.__name__}[{expr}{space}{block}]'
 
 
 class For(ParenStatement):
@@ -1196,6 +1199,34 @@ class Struct(Inheritable):
         inheritance = f' : {f', '.join([repr(i) for i in self.inheritance])}' if self.inheritance else ''
         members = ', '.join([repr(m) for m in self.members])
         return f'Struct[{mod}{self.name}{inheritance} <{members}>]'
+
+
+@dataclass
+class Switch(ParenStatement):
+    cases: list[SwitchCase]
+
+    def __init__(self, expr: Paren, tokens: list[Token], parent: Block):
+        super().__init__(expr, None, parent)
+        self.tokens = tokens
+
+        self.cases = []
+        while not self.take_specific('Operator', '}'):
+            if self.take_specific('Special', 'case'):
+                self.cases.append(SwitchCase(self.make_paren(), self.make_block(), self))
+            elif self.take_specific('Special', 'default'):
+                self.cases.append(SwitchCase(None, self.make_block(), self))
+                self.expect('Operator', '}')
+                break
+            else:
+                self.error('unexpected token in switch')
+
+    def __repr__(self) -> str:
+        return f'Switch[{' '.join([repr(c) for c in self.cases])}]'
+
+
+class SwitchCase(ParenStatement):
+    def __init__(self, expr: Paren, block: Block, parent: Switch):
+        super().__init__(expr, block, parent)
 
 
 @dataclass
