@@ -7,8 +7,8 @@
 //     - using an ellipses for deferred implementation "{ ... }"
 
 namespace std.math {
-    f64 E           = 2.71828'18284'59045'2;  // TODO find actual precision
-    f32 E_32        = 2.71828'18284'59045'2;  // TODO find actual precision
+    f64 E           = 2.71828'18284'59045;
+    f32 E_32        = 2.71828'1;
     f64 NEG_INF     = 0xFFF0'0000'0000'0000;
     f32 NEG_INF_32  = 0xFF80'0000;
     f64 NEG_ZERO    = 0x8000'0000'0000'0000;
