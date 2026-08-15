@@ -166,6 +166,12 @@ class Node(ABC):
 
         return Type(tokens, held_type)
 
+    def peek(self, ahead: int = 1) -> Token:
+        if self.index + ahead - 1 >= len(self.tokens):
+            return Token('EOF', None)
+
+        return self.tokens[self.index + ahead - 1]
+
     def take(self) -> Token:
         token = self.next
         if not (token.of('EOF')):
@@ -834,9 +840,20 @@ class ParenStatement(Statement):
         return f'{self.__class__.__name__}[{expr}{space}{block}]'
 
 
+@dataclass
 class For(ParenStatement):
+    it_type: Type
+    it_id:   Token
+    it_expr: Expression
+
     def __init__(self, expr: Paren, block: Block, parent: Block):
         super().__init__(expr, block, parent)
+
+        self.tokens = expr.tokens
+        self.it_type = self.make_type()
+        self.it_id = self.expect('Identifier')
+        self.expect('Special', 'in')
+        self.it_expr = Expression(self.tokens[self.index:-1], self)
 
 
 @dataclass

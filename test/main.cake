@@ -34,7 +34,7 @@ void main() {
         f64 d;
     }
 
-    for (i in 0..5) {
+    for (i8 i in 0..5) {
         f32 f;
     }
 
