@@ -4,7 +4,10 @@ alias std.dict<std.array<i8>> dai;
 
 class C : I, S {
     override {
-        private void hello() {}
+        void hello() {
+            string s = "ha";
+            string t = #"yes";
+        }
     }
 
     mut i32 x = 4;
@@ -99,7 +102,7 @@ interface I {
 final interface J : I {
     override {
         void hello() {
-            string s = "ha";
+            string s = "ham";
         }
     }
 }

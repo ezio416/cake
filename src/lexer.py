@@ -83,7 +83,28 @@ class Lexer:
 
                     if line.next() in OPERATOR_SYMBOLS:
                         op = line.take()
-                        ...  # TODO format strings
+                        if op == '#':
+                            if line.take() == '"':  # TODO DRY
+                                while line.next().isascii():
+                                    if line.next() == '\\':
+                                        line.take()
+                                        if line.next() in '"':
+                                            line.take()
+                                        else:
+                                            ...
+                                    elif line.next() == '"':
+                                        line.take()
+                                        break
+                                    elif line.finished():
+                                        raise LexerError('unterminated string literal')
+                                    else:
+                                        line.take()
+                                if not line.taken().endswith('"'):
+                                    raise LexerError('unterminated string literal')
+                                self.tokens.append(Token('String', line))
+                                file.tokens.append(self.tokens[-1])
+                            else:
+                                raise LexerError(f'unexpected symbol in string literal: {line.taken()[-1]}')
                         if op == '/' and line.next() == '/':
                             line.take()
                             line.ignore()
@@ -149,10 +170,26 @@ class Lexer:
                         file.tokens.append(self.tokens[-1])
 
                     elif line.next() in PUNCTUATOR_SYMBOLS:
-                        line.take()
-                        ...  # TODO strings
-                        self.tokens.append(Token('Operator', line))
-                        file.tokens.append(self.tokens[-1])
+                        if line.take() == '"':
+                            while line.next().isascii():
+                                if line.next() == '\\':
+                                    line.take()
+                                    if line.next() in '"':
+                                        line.take()
+                                    else:
+                                        ...
+                                elif line.next() == '"':
+                                    line.take()
+                                    break
+                                elif line.finished():
+                                    raise LexerError('unterminated string literal')
+                                else:
+                                    line.take()
+                            self.tokens.append(Token('String', line))
+                            file.tokens.append(self.tokens[-1])
+                        else:
+                            self.tokens.append(Token('Operator', line))
+                            file.tokens.append(self.tokens[-1])
 
                     elif line.next() in IDENTIFIER_SYMBOLS:
                         while line.next() in IDENTIFIER_SYMBOLS:
