@@ -75,6 +75,33 @@ class Lexer:
                             if char not in DIGIT_SYMBOLS + '-':
                                 raise LexerError(f'invalid scientific number {line.loc()}: "{num}"')
 
+                def make_string() -> bool:
+                    if line.take() != '"':
+                        return False
+
+                    while line.next().isascii():
+                        if line.next() == '\\':
+                            line.take()
+                            if line.next() in '"':
+                                line.take()
+                            else:
+                                ...  # TODO string escapes
+                        elif line.next() == '"':
+                            line.take()
+                            break
+                        elif line.finished():
+                            raise LexerError(f'unterminated string literal {line.loc()}: {line.taken()}')
+                        else:
+                            line.take()
+
+                    if not line.taken().endswith('"'):
+                        raise LexerError(f'unterminated string literal {line.loc()}: {line.taken()}')
+
+                    self.tokens.append(Token('String', line))
+                    file.tokens.append(self.tokens[-1])
+
+                    return True
+
                 while not line.finished():
                     line.ignore_spaces()
 
@@ -83,28 +110,10 @@ class Lexer:
 
                     if line.next() in OPERATOR_SYMBOLS:
                         op = line.take()
-                        if op == '#':
-                            if line.take() == '"':  # TODO DRY
-                                while line.next().isascii():
-                                    if line.next() == '\\':
-                                        line.take()
-                                        if line.next() in '"':
-                                            line.take()
-                                        else:
-                                            ...
-                                    elif line.next() == '"':
-                                        line.take()
-                                        break
-                                    elif line.finished():
-                                        raise LexerError('unterminated string literal')
-                                    else:
-                                        line.take()
-                                if not line.taken().endswith('"'):
-                                    raise LexerError('unterminated string literal')
-                                self.tokens.append(Token('String', line))
-                                file.tokens.append(self.tokens[-1])
-                            else:
-                                raise LexerError(f'unexpected symbol in string literal: {line.taken()[-1]}')
+                        if op == '#' and not make_string():
+                            raise LexerError(
+                                f'unexpected symbol in string literal {line.loc()}: "{line.taken()[-1]}"'
+                            )
                         if op == '/' and line.next() == '/':
                             line.take()
                             line.ignore()
@@ -170,24 +179,7 @@ class Lexer:
                         file.tokens.append(self.tokens[-1])
 
                     elif line.next() in PUNCTUATOR_SYMBOLS:
-                        if line.take() == '"':
-                            while line.next().isascii():
-                                if line.next() == '\\':
-                                    line.take()
-                                    if line.next() in '"':
-                                        line.take()
-                                    else:
-                                        ...
-                                elif line.next() == '"':
-                                    line.take()
-                                    break
-                                elif line.finished():
-                                    raise LexerError('unterminated string literal')
-                                else:
-                                    line.take()
-                            self.tokens.append(Token('String', line))
-                            file.tokens.append(self.tokens[-1])
-                        else:
+                        if not make_string():
                             self.tokens.append(Token('Operator', line))
                             file.tokens.append(self.tokens[-1])
 
