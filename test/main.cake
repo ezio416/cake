@@ -7,6 +7,7 @@ class C : I, S {
         void hello() {
             string s = "ha";
             string t = #"yes";
+            string u = "hello\b\f\n\r\t\v\0\12\345\x67\u89ab\Ucdef0123world";
         }
     }
 

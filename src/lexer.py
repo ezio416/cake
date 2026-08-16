@@ -82,10 +82,40 @@ class Lexer:
                     while line.next().isascii():
                         if line.next() == '\\':
                             line.take()
-                            if line.next() in '"':
+                            if line.next() in '"bfnrtv':
                                 line.take()
+                            elif line.next() == 'U':
+                                line.take()
+                                for _ in range(8):
+                                    if line.next().lower() in '0123456789abcdef':
+                                        line.take()
+                                    else:
+                                        break
+                            elif line.next() == 'u':
+                                line.take()
+                                for _ in range(4):
+                                    if line.next().lower() in '0123456789abcdef':
+                                        line.take()
+                                    else:
+                                        break
+                            elif line.next() == 'x':
+                                line.take()
+                                for _ in range(2):
+                                    if line.next().lower() in '0123456789abcdef':
+                                        line.take()
+                                    else:
+                                        break
+                            elif line.next() in '01234567':
+                                line.take()
+                                for _ in range(2):
+                                    if line.next() in '01234567':
+                                        line.take()
+                                    else:
+                                        break
                             else:
-                                ...  # TODO string escapes
+                                raise LexerError(
+                                    f'unexpected escape sequence in string literal {line.loc()}: "{line.next()}"'
+                                )
                         elif line.next() == '"':
                             line.take()
                             break
