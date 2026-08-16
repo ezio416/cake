@@ -79,6 +79,7 @@ void main() {
 
 i32 add(i32 i, i8 j) {
     del i;
+    i8 k;
     try {
         break 4;
         continue;
@@ -97,7 +98,9 @@ interface I {
 
 final interface J : I {
     override {
-        void hello() { }
+        void hello() {
+            string s = "ha";
+        }
     }
 }
 

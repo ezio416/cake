@@ -241,6 +241,7 @@ class Namespace(Node):
     functions:    list[Function]
     interfaces:   list[Interface]
     namespaces:   list[Namespace]
+    nodes:        dict[str, Node]
     structs:      list[Struct]
     unions:       list[Union]
 
@@ -253,12 +254,14 @@ class Namespace(Node):
         self.enums        = []
         self.functions    = []
         self.interfaces   = []
+        self.nodes        = {}
         self.namespaces   = []
         self.structs      = []
         self.unions       = []
 
         if self.name == 'global':
             self.namespaces.append(StdNamespace(self))
+            self.add_node(self.namespaces[-1])
 
         if not self.tokens:
             return
@@ -266,9 +269,13 @@ class Namespace(Node):
         while not ((next := self.next).of('EOF')):
             if next.of('Special'):
                 match next.string:
-                    case 'alias':     self.aliases.append(self.make_alias())
+                    case 'alias':
+                        self.aliases.append(self.make_alias())
+                        self.add_node(self.aliases[-1])
                     case 'enum':      self.make_enum()
-                    case 'mut':       self.declarations.append(self.make_declaration())
+                    case 'mut':
+                        self.declarations.append(self.make_declaration())
+                        self.add_node(self.declarations[-1])
                     case 'namespace': self.make_namespace()
                     case 'union':     self.make_union()
                     case _:
@@ -291,14 +298,29 @@ class Namespace(Node):
                 name = self.expect('Identifier')
                 if self.take_specific('Operator', '('):
                     self.functions.append(self.make_function(decl_type, name))
+                    self.add_node(self.functions[-1])
+                    if self.functions[-1].block:
+                        for n in self.functions[-1].block.nodes:
+                            self.add_node(n)
+                    for p in self.functions[-1].params:
+                        self.add_node(p)
                 else:
                     self.declarations.append(self.make_declaration(decl_type, name))
+                    self.add_node(self.declarations[-1])
 
             else:
                 self.error('unexpected token')
 
     def __repr__(self) -> str:
         return f'Namespace[{self.name}]'  # TODO ns repr
+
+    def add_node(self, node: Node) -> None:
+        path = node.path[len(self.path) + 1:]
+        if path.endswith('.'):
+            return
+        if path in self.nodes:
+            raise LanguageError(f'duplicate name: {node.path}')  # TODO lang error
+        self.nodes[path] = node
 
     def make_enum(self):
         self.take()  # "enum"
@@ -330,6 +352,9 @@ class Namespace(Node):
                 self.error('unexpected token in enum')
 
         self.enums.append(Enum(elements, name, self))
+        self.add_node(self.enums[-1])
+        for e in self.enums[-1].elements:
+            self.add_node(e)
 
     def make_function(self, return_type: Type, name: Token) -> Function:
         params = []
@@ -352,7 +377,7 @@ class Namespace(Node):
         )
 
     def make_inheritable(self, modifier: Token = None):
-        arr = None
+        arr = list[Inheritable]
         cls = None
 
         match self.take().string:
@@ -373,6 +398,19 @@ class Namespace(Node):
             self.make_block().tokens,
             self
         ))
+        self.add_node(arr[-1])
+        for m in arr[-1].members:
+            self.add_node(m)
+        for m in arr[-1].methods:
+            self.add_node(m)
+            for n in m.block.nodes:
+                self.add_node(n)
+        for m in arr[-1].override_members:
+            self.add_node(m)
+        for m in arr[-1].override_methods:
+            self.add_node(m)
+            for n in m.block.nodes:
+                self.add_node(n)
 
     def make_inheritance(self) -> list[Type]:
         ret = []
@@ -397,6 +435,9 @@ class Namespace(Node):
         self.namespaces.append(Namespace(
             self.make_block().tokens + [Token('EOF', None)], Identifier(name), self
         ))
+        self.add_node(self.namespaces[-1])
+        for n in self.namespaces[-1].nodes.values():
+            self.add_node(n)
 
     def make_union(self):
         self.take()  # "union"
@@ -436,6 +477,9 @@ class Namespace(Node):
             tokens.append(self.take())
 
         self.unions.append(Union(params, tokens, name, self))
+        self.add_node(self.unions[-1])
+        for p in self.unions[-1].params:
+            self.add_node(p)
 
 
 class BareNamespace(Namespace):
