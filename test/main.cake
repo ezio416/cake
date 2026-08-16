@@ -106,6 +106,18 @@ final interface J : I {
 
 namespace N {
     alias int i;
+
+    class D {
+        ;
+    }
+
+    class Nc : global.C {
+        ;
+    }
+}
+
+class Nd : N.D {
+    ;
 }
 
 struct S {

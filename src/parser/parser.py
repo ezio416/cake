@@ -481,6 +481,18 @@ class Namespace(Node):
         for p in self.unions[-1].params:
             self.add_node(p)
 
+    def parse(self):
+        for node in self.nodes.values():
+            if isinstance(node, Inheritable):
+                for i in node.inheritance:
+                    name = i.name[7:] if i.name.startswith('global.') else i.name
+                    if name in self.nodes:
+                        node.inheritance_nodes[name] = self.nodes[name]
+                    else:
+                        self.error('unknown inherited type', i.tokens)
+            elif False:
+                ...  # TODO more second pass
+
 
 class BareNamespace(Namespace):
     def __init__(self, name: Identifier | str, parent: Namespace = None):
@@ -668,24 +680,26 @@ class Break(SimpleStatement):
 
 @dataclass
 class Inheritable(Node, ABC):
-    abstract:         bool
-    final:            bool
-    inheritance:      list[Type]
-    members:          list[Member]
-    methods:          list[Method]
-    modifier:         Token
-    override_members: list[Member]
-    override_methods: list[Method]
+    abstract:          bool
+    final:             bool
+    inheritance:       list[Type]
+    inheritance_nodes: dict[str, Inheritable]
+    members:           list[Member]
+    methods:           list[Method]
+    modifier:          Token
+    override_members:  list[Member]
+    override_methods:  list[Method]
 
     def __init__(self, modifier: Token, name: Token, inheritance: list[Type], tokens: list[Token], parent: Namespace):
         Node.__init__(self, tokens, Identifier(name), parent)
-        self.abstract         = False
-        self.final            = False
-        self.inheritance      = inheritance
-        self.members          = []
-        self.methods          = []
-        self.override_members = []
-        self.override_methods = []
+        self.abstract          = False
+        self.final             = False
+        self.inheritance       = inheritance
+        self.inheritance_nodes = {}
+        self.members           = []
+        self.methods           = []
+        self.override_members  = []
+        self.override_methods  = []
 
         if modifier:
             if modifier.of_has('Special', 'abstract'):
@@ -1142,8 +1156,7 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens in "global"')
         self.global_ns = Namespace(self.tokens, 'global')
-
-        ...  # TODO second pass
+        self.global_ns.parse()
 
     def take(self) -> Token:
         token = self.next()
@@ -1197,16 +1210,28 @@ class Parser:
 
 class ParserError(LanguageError):
     def __init__(self, token: Token | list[Token], *args):
+        locale = []
         tokens = ''
         if type(token) is Token:
+            locale = token.locale
             tokens = str(token)
         else:
-            tokens = ' '.join(token)
+            locale = [token[0].locale[0], token[-1].locale[1]]
+            tokens = ' '.join([str(t) for t in token])
             token = token[0]
 
         line = token.line.string
-        marks = '~' * token.locale[0] + '^' * (token.locale[1] - token.locale[0])
-        super().__init__(f'{token.loc()} | {tokens} | {' '.join(args)}\n{line.rstrip('\n').rstrip('\r')}\n{marks}')
+        indent = 0
+        for char in line:
+            if char.isspace():
+                indent += 1
+            else:
+                break
+        locale[0] -= indent
+        locale[1] -= indent
+        line = line.lstrip(' ').rstrip('\n').rstrip('\r')
+        marks = '~' * locale[0] + '^' * (locale[1] - locale[0])
+        super().__init__(f'{token.loc()} | {tokens} | {' '.join(args)}\n{line}\n{marks}')
 
 
 class Return(SimpleStatement):
