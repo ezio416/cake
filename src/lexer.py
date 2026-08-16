@@ -79,7 +79,7 @@ class Lexer:
                     if line.take() != '"':
                         return False
 
-                    while line.next().isascii():
+                    while ord(line.next()) <= 0xFF:
                         if line.next() == '\\':
                             line.take()
                             if line.next() in '"bfnrtv':
@@ -123,6 +123,9 @@ class Lexer:
                             raise LexerError(f'unterminated string literal {line.loc()}: {line.taken()}')
                         else:
                             line.take()
+
+                    if ord(line.next()) > 0xFF:
+                        raise LexerError(f'unexpected character in string literal {line.loc()}: "{line.next()}"')
 
                     if not line.taken().endswith('"'):
                         raise LexerError(f'unterminated string literal {line.loc()}: {line.taken()}')
