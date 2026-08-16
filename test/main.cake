@@ -1,15 +1,17 @@
 alias i32 int;  // a comment
 alias <std.dict<int>&><i8, mut u16&, @type> func;
+alias std.dict<std.array<i8>> dai;
 
 class C : I, S {
     override {
         private void hello() {}
     }
 
-    i32 x = 4;
+    mut i32 x = 4;
 
     void $init() {
         i32 m = 2;
+        // x >>= 2;
     }
 }
 

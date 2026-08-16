@@ -47,7 +47,7 @@ class Node(ABC):
 
     def expect(self, of: str = '', has: str = '') -> Token:
         if of and not self.next.of(of):
-            self.error(f'expected {of}')
+            self.error(f'expected {of}{f' "{has}"' if has else ''}')
         if has and not self.next.has(has):
             self.error(f'expected "{has}"')
         return self.take()
@@ -95,6 +95,36 @@ class Node(ABC):
 
         return Declaration(decl_type, name, tokens, self)
 
+    def make_function_type(self) -> FunctionType:
+        first = self.take()  # "<"
+
+        return_type: Type = None
+
+        if self.next.of('Type'):
+            return_type = Type(self.take())
+            self.expect('Operator', '>')
+        elif self.next.of('Identifier'):
+            return_type = self.make_type()
+            self.take_specific('Operator', '>')
+        else:
+            self.error('expected identifier or type')
+
+        self.expect('Operator', '<')
+        param_types: list[Type] = []
+        while True:
+            if self.next.type_starter() or self.next.of_has('Operator', '@'):
+                param_types.append(self.make_type())
+            elif self.take_specific('Operator', ','):
+                continue
+            elif self.take_specific('Operator', '>'):
+                break
+            elif self.next.of('EOF'):
+                self.error('unexpected EOF')
+            else:
+                self.error('expected type')
+
+        return FunctionType(first, return_type, param_types)
+
     def make_paren(self) -> Paren:
         return self.make_stack(Paren, '(', ')')
 
@@ -136,6 +166,9 @@ class Node(ABC):
                 break
             elif self.next.of('Type'):
                 tokens.append(self.take())
+                if (ref := self.take_specific('Operator', '&')):
+                    tokens.append(ref)
+                break
             elif self.next.of('Identifier'):
                 if self.last and self.last.type_starter(False):
                     break
@@ -143,9 +176,11 @@ class Node(ABC):
                 if (dot := self.take_specific('Operator', '.')):
                     tokens.append(dot)
                     continue
-                if self.take_specific('Operator', '<'):
+                if (left := self.take_specific('Operator', '<')):
+                    tokens.append(left)
                     held_type = self.make_type()
-                    self.expect('Operator', '>')
+                    tokens += held_type.tokens
+                    tokens.append(self.expect('Operator', '>'))
                 if (ref := self.take_specific('Operator', '&')):
                     tokens.append(ref)
                 self.take_specific('Operator', ',')
@@ -315,36 +350,6 @@ class Namespace(Node):
             [] if self.take_specific('Operator', ';') else self.make_block().tokens,
             self
         )
-
-    def make_function_type(self) -> FunctionType:
-        first = self.take()  # "<"
-
-        return_type: Type = None
-
-        if self.next.of('Type'):
-            return_type = Type(self.take())
-            self.expect('Operator', '>')
-        elif self.next.of('Identifier'):
-            return_type = self.make_type()
-            self.take_specific('Operator', '>')
-        else:
-            self.error('expected identifier or type')
-
-        self.expect('Operator', '<')
-        param_types: list[Type] = []
-        while True:
-            if self.next.type_starter() or self.next.of_has('Operator', '@'):
-                param_types.append(self.make_type())
-            elif self.take_specific('Operator', ','):
-                continue
-            elif self.take_specific('Operator', '>'):
-                break
-            elif self.next.of('EOF'):
-                self.error('unexpected EOF')
-            else:
-                self.error('expected type')
-
-        return FunctionType(first, return_type, param_types)
 
     def make_inheritable(self, modifier: Token = None):
         arr = None
@@ -711,7 +716,7 @@ class Class(Inheritable):
                         mods.append(self.take())
                         if self.last.has('protected') and self.next.of_has('Special', 'final'):
                             mods.append(self.take())
-                    else:
+                    elif not self.next.has('mut'):
                         self.error('unexpected keyword')
 
                 if self.next.type_starter():
@@ -925,15 +930,6 @@ class Type(Identifier):
         self.mut = self.token.of_has('Special', 'mut')
         if self.mut:
             self.name = f'mut {self.name[3:]}'
-
-        if self.held_type:
-            ref = False
-            if self.name.endswith('&'):
-                ref = True
-                self.name = self.name[:-1]
-            self.name += f'<{self.held_type}>'
-            if ref:
-                self.name += '&'
 
     def __repr__(self) -> str:
         return f'Type[{self.name}]'
@@ -1157,10 +1153,16 @@ class Parser:
 
 class ParserError(LanguageError):
     def __init__(self, token: Token | list[Token], *args):
+        tokens = ''
         if type(token) is Token:
-            super().__init__(f'{token.loc()} | {token} | {' '.join(args)}')
+            tokens = str(token)
         else:
-            super().__init__(f'{token[0].loc()} | {' '.join(token)} | {' '.join(args)}')
+            tokens = ' '.join(token)
+            token = token[0]
+
+        line = token.line.string
+        marks = '~' * token.locale[0] + '^' * (token.locale[1] - token.locale[0])
+        super().__init__(f'{token.loc()} | {tokens} | {' '.join(args)}\n{line.rstrip('\n').rstrip('\r')}\n{marks}')
 
 
 class Return(SimpleStatement):
