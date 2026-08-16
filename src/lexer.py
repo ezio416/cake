@@ -83,6 +83,7 @@ class Lexer:
 
                     if line.next() in OPERATOR_SYMBOLS:
                         op = line.take()
+                        ...  # TODO format strings
                         if op == '/' and line.next() == '/':
                             line.take()
                             line.ignore()
@@ -111,16 +112,15 @@ class Lexer:
                                 line.take()
                                 took = True
                             if not took:
-                                for char in '&*+-^|':  # TODO bitshift/cmp
+                                for char in '&*+-^|':
                                     if op == char:
                                         if line.next() == '=':
                                             line.take()
-                                            break
                                         elif line.next() == char:
                                             line.take()
-                                            if op in '&*^|' and line.next() == '=':  # TODO bitshift/cmp
+                                            if op in '&*^|' and line.next() == '=':
                                                 line.take()
-                                                break
+                                        break
 
                         self.tokens.append(Token('Operator', line))
                         file.tokens.append(self.tokens[-1])
@@ -150,6 +150,7 @@ class Lexer:
 
                     elif line.next() in PUNCTUATOR_SYMBOLS:
                         line.take()
+                        ...  # TODO strings
                         self.tokens.append(Token('Operator', line))
                         file.tokens.append(self.tokens[-1])
 
