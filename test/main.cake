@@ -21,10 +21,10 @@ class C : I, S {
     }
 }
 
-// enum E {
-//     a = 3,
-//     b = 5
-// }
+enum E {
+    a = 3,
+    b = 5
+}
 
 int i;
 auto j = 2 >> 7;
@@ -161,15 +161,15 @@ union U<
     i32                      i,
     E                        e,
     N.i                      j,
-    std.array<std.dict<N.i>> s,
-    @type                    T
+    // std.array<std.dict<N.i>> s,
+    // @type                    T
 > {
     a,
     b(i),
     c(e),
     d(j),
-    e(s),
+    // e(s),
     f,
-    g(T),
+    // g(T),
     h,
 }

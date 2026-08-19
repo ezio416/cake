@@ -484,7 +484,7 @@ class Namespace(Node):
                     if id.string in ids:
                         self.error('duplicate union parameter name', id)
                     ids.add(id.string)
-                    params.append(UnionParam(held_type, id))
+                    params.append(Declaration(held_type, id, [], None))
                     self.take_specific('Operator', ',')
                     if self.take_specific('Operator', '>'):
                         break
@@ -1421,9 +1421,9 @@ class Try(Statement):
 @dataclass
 class Union(Node):
     elements: list[UnionElement]
-    params:   list[UnionParam]
+    params:   list[Declaration]
 
-    def __init__(self, params: list[UnionParam], tokens: list[Token], name: Token, parent: Namespace):
+    def __init__(self, params: list[Declaration], tokens: list[Token], name: Token, parent: Namespace):
         super().__init__(tokens, Identifier(name), parent)
         self.params = params
         for p in self.params:
@@ -1435,6 +1435,8 @@ class Union(Node):
             return
 
         self.tokens.append(Token('EOF', None))
+
+        used = set()
 
         while not self.next.of('EOF'):
             if self.next.of('Identifier'):
@@ -1449,11 +1451,11 @@ class Union(Node):
                         held = self.take()
                         found = False
                         for p in self.params:
-                            if held.string == str(p.name):
+                            if held.string == (name := str(p.name)):
                                 found = True
-                                if p.used:
+                                if name in used:
                                     self.error('union parameter already used', held)
-                                p.used = True
+                                used.add(name)
                                 self.elements.append(UnionElement(element_name, self, p))
                                 break
                         if not found:
@@ -1464,44 +1466,38 @@ class Union(Node):
                         self.error('expected identifier')
 
         for p in self.params:
-            if not p.used:
-                self.error('unused union parameter', p.held_type.token)
+            if str(p.name) not in used:
+                self.error('unused union parameter', p.var_type.token)
 
     def __repr__(self) -> str:
         params = ', '.join([repr(p) for p in self.params])
         elements = ', '.join([repr(e) for e in self.elements])
         return f'Union[{self.path} <{params}> <{elements}>]'
 
+    def tree(self, indent: int, last: bool = False) -> str:
+        ret = f'Union "{self.path}"'
+
+        def _indent(i: int, last_index: int) -> str:
+            return f'{self.indent(indent, last)}{SYM_T if i < last_index else SYM_L}'
+
+        for i, e in enumerate(self.params):
+            ret += f'{_indent(i, len(self.params) - 1)} {e.var_type.name} {e.name}'
+        for i, e in enumerate(self.elements):
+            ret += f'{_indent(i, len(self.elements) - 1)} {e.name}{f'({e.param.name})' if e.param else ''}'
+
+        return ret
 
 @dataclass
 class UnionElement(Node):
-    param: UnionParam
+    param: Declaration
 
-    def __init__(self, name: Token, parent: Union, param: UnionParam = None):
+    def __init__(self, name: Token, parent: Union, param: Declaration = None):
         super().__init__(name=Identifier(name), parent=parent)
         self.param = param
-        if self.param:
-            self.param.element = self
 
     def __repr__(self) -> str:
         param = f'<{self.param.name}>' if self.param else ''
         return f'UnionElement[{self.name}{param}]'
-
-
-@dataclass
-class UnionParam(Node):
-    element:   UnionElement | None
-    held_type: Type
-    used:      bool
-
-    def __init__(self, held_type: Type, name: Token):
-        super().__init__(held_type.tokens, Identifier(name))
-        self.element   = None
-        self.held_type = held_type
-        self.used      = False
-
-    def __repr__(self) -> str:
-        return f'UnionParam[{self.held_type} {self.name}]'
 
 
 class While(ParenStatement):
