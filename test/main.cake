@@ -21,10 +21,10 @@ class C : I, S {
     }
 }
 
-enum E {
-    a = 3,
-    b = 5
-}
+// enum E {
+//     a = 3,
+//     b = 5
+// }
 
 int i;
 auto j = 2 >> 7;
@@ -119,6 +119,18 @@ namespace N {
 
     class Nc : global.C {
         ;
+    }
+
+    enum Ne {
+        foo = 42,
+        bar = 69,
+        baz = 1337,
+    }
+
+    enum Ne2 {
+        abc = 3,
+        def,
+        ghi = 12,
     }
 }
 

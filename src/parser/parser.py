@@ -6,10 +6,9 @@ from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
-SYM_BAR  = '\u2502'  # │
-SYM_DASH = '\u2500'  # ─
-SYM_L    = '\u2514'  # └
-SYM_T    = '\u251C'  # ├
+SYM_BAR  = '\u2502'              # │
+SYM_L    = '\u2514\u2500\u2500'  # └──
+SYM_T    = '\u251C\u2500\u2500'  # ├──
 
 
 @dataclass
@@ -57,6 +56,9 @@ class Node(ABC):
         if has and not self.next.has(has):
             self.error(f'expected "{has}"')
         return self.take()
+
+    def indent(self, indent: int, last: bool = False) -> str:
+        return f'\n{f'{SYM_BAR}   ' * (indent - 1)}{' ' if last else SYM_BAR}   '
 
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
@@ -252,9 +254,7 @@ class Alias(Node):
         return f'Alias[{self.old.name} {self.path}]'
 
     def tree(self, indent: int, last: bool = False) -> str:
-        indent_ = f'{SYM_BAR}   ' * (indent - 1)
-        indent_ += ' ' if last else SYM_BAR
-        return f'Alias "{self.path}"\n{indent_}   {SYM_L}{SYM_DASH * 2} {self.old.name}'
+        return f'Alias "{self.path}"{self.indent(indent, last)}{SYM_L} {self.old.name}'
 
 
 @dataclass
@@ -352,22 +352,21 @@ class Namespace(Node):
 
         name = self.expect('Identifier')
         self.expect('Operator', '{')
-        elements: list[EnumElement] = []
-        prev_value = -1
+        elements = []
+        value = -1
         while True:
             if self.next.of('Identifier'):
                 element_name = self.take()
                 if self.take_specific('Operator', ','):
-                    elements.append(EnumElement(element_name))
-                    prev_value += 1
+                    value += 1
+                    elements.append(EnumElement(element_name, value))
                 elif self.take_specific('Operator', '}'):
-                    elements.append(EnumElement(element_name))
+                    elements.append(EnumElement(element_name, value + 1))
                     break
                 elif self.take_specific('Operator', '='):
                     if self.next.of('Number'):
                         value = int(self.take().string)
-                        prev_value = value
-                        elements.append(EnumElement(element_name, value))
+                        elements.append(EnumElement(element_name, value, self.last))
                     self.take_specific('Operator', ',')
                 else:
                     self.error('unexpected token in enum')
@@ -550,7 +549,7 @@ class Namespace(Node):
     def tree(self, indent: int, last: bool = False) -> str:
         parent_indent = f'{' ' * max(indent - 1, 0) * 3}{SYM_BAR}' if indent else ''
         self_indent = ' ' * indent * 3
-        indent_ = f'\n{parent_indent}{self_indent}{SYM_T}{SYM_DASH * 2} '
+        indent_ = f'\n{parent_indent}{self_indent}{SYM_T} '
         ret = f'Namespace "{self.path}"'
 
         last = self.unions or self.structs or self.namespaces or self.interfaces or self.functions or self.enums\
@@ -914,9 +913,10 @@ class Declaration(Node):
         return f'Declaration[{self.var_type} {self.name}{expr}]'
 
     def tree(self, indent: int, last: bool = False) -> str:
-        ret = f'Declaration "{self.path}"\n{f'{SYM_BAR}   ' * indent}{SYM_T if self.expr else SYM_L}{SYM_DASH * 2} {self.node.tree(indent + 1, True) if self.node else self.var_type.name}'
+        ret = f'Declaration "{self.path}"{self.indent(indent, last)}{SYM_T if self.expr else SYM_L} '
+        ret += self.node.tree(indent + 1, not self.expr) if self.node else '*' + self.var_type.name
         if self.expr:
-            ret += f'\n{f'{SYM_BAR}   ' * indent}{SYM_L}{SYM_DASH * 2} {self.expr.tree(indent + 1, last)}'
+            ret += f'{self.indent(indent, last)}{SYM_L} {self.expr.tree(indent + 1, last)}'
         return ret
 
 
@@ -950,19 +950,30 @@ class Enum(Node):
     def __init__(self, elements: list[EnumElement], name: Token, parent: Namespace):
         super().__init__(name=Identifier(name), parent=parent)
         self.elements = elements
+
+        values = set()
         for e in self.elements:
             e.parent = self
+            if e.value in values:
+                self.error('duplicate enum value', e.token)
+            values.add(e.value)
 
     def __repr__(self) -> str:
         return f'Enum[{self.path} <{self.elements}>]'
+
+    def tree(self, indent: int, last: bool = False) -> str:
+        ret = f'Enum "{self.path}"'
+        for i, e in enumerate(self.elements):
+            ret += f'{self.indent(indent, last)}{SYM_T if i < len(self.elements) - 1 else SYM_L} {e.name}({e.value})'
+        return ret
 
 
 @dataclass
 class EnumElement(Node):
     value: int
 
-    def __init__(self, name: Token, value: int = 0):
-        super().__init__(name=Identifier(name))
+    def __init__(self, name: Token, value: int = 0, token: Token = None):
+        super().__init__([token] if token else [], Identifier(name))
         self.value = value
 
     def __repr__(self) -> str:
