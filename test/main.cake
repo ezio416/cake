@@ -132,6 +132,8 @@ namespace N {
         def,
         ghi = 12,
     }
+
+    i32 v = 5;
 }
 
 class Nd : N.D {
