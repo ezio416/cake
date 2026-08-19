@@ -522,6 +522,8 @@ class Namespace(Node):
 
                 if not skip:
                     name = node.var_type.name
+                    if name.startswith('@'):
+                        name = name[1:]
                     if name.startswith('mut '):
                         name = name[4:]
                     if name.startswith('global.'):
