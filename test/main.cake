@@ -13,6 +13,7 @@ class C : I, S {
     }
 
     mut i32 x = 4;
+    // auto y;
 
     void $init() {
         i32 m = 2;

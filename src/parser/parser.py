@@ -906,6 +906,9 @@ class Declaration(Node):
         self.node     = None
         self.var_type = var_type
 
+        if not self.expr and self.var_type and self.var_type.name == 'auto':
+            self.error('unable to infer auto type', self.var_type.token)
+
     def __repr__(self) -> str:
         expr = f' <{self.expr}>' if self.expr else ''
         return f'Declaration[{self.var_type} {self.name}{expr}]'
@@ -1289,7 +1292,7 @@ class ParserError(LanguageError):
         locale = []
         tokens = ''
         if type(token) is Token:
-            locale = token.locale
+            locale = token.locale.copy()
             tokens = str(token)
         else:
             locale = [token[0].locale[0], token[-1].locale[1]]
