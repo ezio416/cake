@@ -6,6 +6,12 @@ from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
+SYM_BAR  = '\u2502'  # │
+SYM_DASH = '\u2500'  # ─
+SYM_L    = '\u2514'  # └
+SYM_T    = '\u251C'  # ├
+
+
 @dataclass
 class Node(ABC):
     index:  int
@@ -216,6 +222,20 @@ class Node(ABC):
     def take_specific(self, of: str, has: str) -> Token | None:
         return self.take() if self.next.of_has(of, has) else None
 
+    def tree(self, indent: int, last: bool = False) -> str:
+        return f'*{self.__class__.__name__}'
+
+
+class Expression(Node, ABC):
+    def __init__(self, tokens: list[Token], parent: Node):
+        Node.__init__(self, tokens, '$expr', parent)
+
+        ...  # TODO expression
+
+    def __repr__(self) -> str:
+        tokens = ' '.join([t.string for t in self.tokens])
+        return f'{self.__class__.__name__}[{tokens}]'
+
 
 @dataclass
 class Alias(Node):
@@ -230,6 +250,11 @@ class Alias(Node):
 
     def __repr__(self) -> str:
         return f'Alias[{self.old.name} {self.path}]'
+
+    def tree(self, indent: int, last: bool = False) -> str:
+        indent_ = f'{SYM_BAR}   ' * (indent - 1)
+        indent_ += ' ' if last else SYM_BAR
+        return f'Alias "{self.path}"\n{indent_}   {SYM_L}{SYM_DASH * 2} {self.old.name}'
 
 
 @dataclass
@@ -483,15 +508,73 @@ class Namespace(Node):
 
     def parse(self):
         for node in self.nodes.values():
-            if isinstance(node, Inheritable):
-                for i in node.inheritance:
-                    name = i.name[7:] if i.name.startswith('global.') else i.name
+            if type(node) is Block:
+                ...  # TODO block 2nd pass
+
+            elif isinstance(node, Declaration):
+                skip = False
+                if not node.var_type:
+                    skip = True
+                else:
+                    for token in node.var_type.tokens:
+                        if token.of('Type'):
+                            skip = True
+                            break
+
+                if not skip:
+                    name = node.var_type.name
+                    if name.startswith('mut '):
+                        name = name[4:]
+                    if name.startswith('global.'):
+                        name = name[7:]
+
                     if name in self.nodes:
+                        node.node = self.nodes[name]
+                    else:
+                        self.error('unknown declaration type', node.tokens)
+
+                    ...
+
+            elif isinstance(node, Inheritable):
+                for i in node.inheritance:
+                    if (name := i.name[7:] if i.name.startswith('global.') else i.name) in self.nodes:
                         node.inheritance_nodes[name] = self.nodes[name]
                     else:
                         self.error('unknown inherited type', i.tokens)
+
             elif False:
                 ...  # TODO more second pass
+
+        ...  # TODO resolve aliases
+
+    def tree(self, indent: int, last: bool = False) -> str:
+        parent_indent = f'{' ' * max(indent - 1, 0) * 3}{SYM_BAR}' if indent else ''
+        self_indent = ' ' * indent * 3
+        indent_ = f'\n{parent_indent}{self_indent}{SYM_T}{SYM_DASH * 2} '
+        ret = f'Namespace "{self.path}"'
+
+        last = self.unions or self.structs or self.namespaces or self.interfaces or self.functions or self.enums\
+            or self.declarations or self.classes or self.aliases
+
+        for arr in (
+            self.aliases,
+            self.classes,
+            self.declarations,
+            self.enums,
+            self.functions,
+            self.interfaces,
+            self.namespaces,
+            self.structs,
+            self.unions
+        ):
+            for i, node in enumerate(arr):
+                is_last = False
+                if arr is last and i == len(last) - 1:
+                    indent_ = indent_.replace(SYM_T, SYM_L)
+                    is_last = True
+                ret += f'{indent_}{node.tree(indent + 1, is_last)}'
+
+        return ret
 
 
 class BareNamespace(Namespace):
@@ -814,16 +897,24 @@ class Continue(SimpleStatement):
 @dataclass
 class Declaration(Node):
     expr:     Expression | None
+    node:     Node | None
     var_type: Type
 
     def __init__(self, var_type: Type, name: Token, tokens: list[Token], parent: Node):
         Node.__init__(self, tokens, Identifier(name), parent)
+        self.expr     = Expression(tokens, self) if tokens else None
+        self.node     = None
         self.var_type = var_type
-        self.expr = Expression(tokens, self) if tokens else None
 
     def __repr__(self) -> str:
         expr = f' <{self.expr}>' if self.expr else ''
         return f'Declaration[{self.var_type} {self.name}{expr}]'
+
+    def tree(self, indent: int, last: bool = False) -> str:
+        ret = f'Declaration "{self.path}"\n{f'{SYM_BAR}   ' * indent}{SYM_T if self.expr else SYM_L}{SYM_DASH * 2} {self.node.tree(indent + 1, True) if self.node else self.var_type.name}'
+        if self.expr:
+            ret += f'\n{f'{SYM_BAR}   ' * indent}{SYM_L}{SYM_DASH * 2} {self.expr.tree(indent + 1, last)}'
+        return ret
 
 
 class Del(Statement):
@@ -873,17 +964,6 @@ class EnumElement(Node):
 
     def __repr__(self) -> str:
         return f'EnumElement[{self.name} = {self.value}]'
-
-
-class Expression(Node, ABC):
-    def __init__(self, tokens: list[Token], parent: Node):
-        Node.__init__(self, tokens, '$expr', parent)
-
-        ...  # TODO expression
-
-    def __repr__(self) -> str:
-        tokens = ' '.join([t.string for t in self.tokens])
-        return f'{self.__class__.__name__}[{tokens}]'
 
 
 @dataclass
@@ -1156,7 +1236,7 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens in "global"')
         self.global_ns = Namespace(self.tokens, 'global')
-        self.global_ns.parse()
+        self.global_ns.parse()  # 2nd, 3rd passes
 
     def take(self) -> Token:
         token = self.next()
@@ -1167,21 +1247,17 @@ class Parser:
         if not self.output_dir:
             raise LanguageError('no output folder given')
 
-        with open(os.path.join(self.output_dir, '3_parser.cakedebug'), 'w', newline='\n') as f:
+        with open(
+            os.path.join(self.output_dir, '3_parser.cakedebug'),
+            'w',
+            encoding='utf-8',
+            newline='\n'
+        ) as f:
             f.write(debug_header('step 3: parser'))
-            # f.write(f'tree:\n\t{self.tree}\n')
-
-            f.write('aliases:\n')
-            for a in self.global_ns.aliases:
-                f.write(f'\t{repr(a)}\n')
 
             f.write('classes:\n')
             for c in self.global_ns.classes:
                 f.write(f'\t{repr(c)}\n')
-
-            f.write('declarations:\n')
-            for d in self.global_ns.declarations:
-                f.write(f'\t{repr(d)}\n')
 
             f.write('enums:\n')
             for e in self.global_ns.enums:
@@ -1195,10 +1271,6 @@ class Parser:
             for i in self.global_ns.interfaces:
                 f.write(f'\t{repr(i)}\n')
 
-            f.write('namespaces:\n')
-            for n in self.global_ns.namespaces:
-                f.write(f'\t{repr(n)}\n')
-
             f.write('structs:\n')
             for s in self.global_ns.structs:
                 f.write(f'\t{repr(s)}\n')
@@ -1206,6 +1278,10 @@ class Parser:
             f.write('unions:\n')
             for u in self.global_ns.unions:
                 f.write(f'\t{repr(u)}\n')
+
+            f.write('-' * 50 + '\n')
+            tree = self.global_ns.tree(0)
+            f.write(tree + '\n')
 
 
 class ParserError(LanguageError):
@@ -1231,7 +1307,7 @@ class ParserError(LanguageError):
         locale[1] -= indent
         line = line.lstrip(' ').rstrip('\n').rstrip('\r')
         marks = '~' * locale[0] + '^' * (locale[1] - locale[0])
-        super().__init__(f'{token.loc()} | {tokens} | {' '.join(args)}\n{line}\n{marks}')
+        super().__init__(f'{token.loc()} | {tokens} | {' '.join(args)}\n  {line}\n  {marks}')
 
 
 class Return(SimpleStatement):

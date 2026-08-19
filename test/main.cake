@@ -5,10 +5,10 @@ alias std.dict<std.array<i8>> dai;
 class C : I, S {
     override {
         void hello() {
-            string s = "ha";
-            string t = #"yes";
-            string u = "hello\b\f\n\r\t\v\0\12\345\x67\u89ab\Ucdef0123world";
-            // string v = "😀";
+            // std.string s = "ha";
+            // std.string t = #"yes";
+            // std.string u = "hello\b\f\n\r\t\v\0\12\345\x67\u89ab\Ucdef0123world";
+            // std.string v = "😀";
         }
     }
 
@@ -104,7 +104,7 @@ interface I {
 final interface J : I {
     override {
         void hello() {
-            string s = "ham";
+            // std.string s = "ham";
         }
     }
 }
