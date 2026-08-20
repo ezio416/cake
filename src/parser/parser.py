@@ -1,14 +1,16 @@
 from abc import ABC
 from dataclasses import dataclass
 import os
+from typing import Never
 
 from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
-SYM_BAR  = '\u2502'              # │
-SYM_L    = '\u2514\u2500\u2500'  # └──
-SYM_T    = '\u251C\u2500\u2500'  # ├──
+SYM_BAR   = '\u2502   '            # "│   "
+SYM_L     = '\u2514\u2500\u2500 '  # "└── "
+SYM_SPACE = '    '
+SYM_T     = '\u251C\u2500\u2500 '  # "├── "
 
 
 @dataclass
@@ -45,7 +47,7 @@ class Node(ABC):
 
         self.index  = 0
 
-    def error(self, msg: str, token: Token = None):
+    def error(self, msg: str, token: Token = None) -> Never:
         if not token:
             token = self.next
         raise ParserError(token, msg)
@@ -58,7 +60,7 @@ class Node(ABC):
         return self.take()
 
     def indent(self, indent: int, last: bool = False) -> str:
-        return f'\n{f'{SYM_BAR}   ' * (indent - 1)}{' ' if last else SYM_BAR}   '
+        return f'\n{SYM_BAR * (indent - 1)}{SYM_SPACE if last else SYM_BAR}'
 
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
@@ -224,7 +226,7 @@ class Node(ABC):
     def take_specific(self, of: str, has: str) -> Token | None:
         return self.take() if self.next.of_has(of, has) else None
 
-    def tree(self, indent: int, last: bool = False) -> str:
+    def tree(self, prepend: str) -> str:
         return f'*{self.__class__.__name__}'
 
 
@@ -253,36 +255,38 @@ class Alias(Node):
     def __repr__(self) -> str:
         return f'Alias[{self.old.name} {self.path}]'
 
-    def tree(self, indent: int, last: bool = False) -> str:
-        return f'Alias "{self.path}"{self.indent(indent, last)}{SYM_L} {self.old.name}'
+    def tree(self, prepend: str) -> str:
+        return f'Alias "{self.path}"\n{prepend}{SYM_L}{self.old.name}'
 
 
 @dataclass
 class Namespace(Node):
-    aliases:      list[Alias]
-    classes:      list[Class]
-    declarations: list[Declaration]
-    enums:        list[Enum]
-    functions:    list[Function]
-    interfaces:   list[Interface]
-    namespaces:   list[Namespace]
-    nodes:        dict[str, Node]
-    structs:      list[Struct]
-    unions:       list[Union]
+    aliases:       list[Alias]
+    classes:       list[Class]
+    declarations:  list[Declaration]
+    enums:         list[Enum]
+    functions:     list[Function]
+    interfaces:    list[Interface]
+    namespaces:    list[Namespace]
+    nodes:         dict[str, Node]
+    ordered_nodes: dict[str, Node]
+    structs:       list[Struct]
+    unions:        list[Union]
 
     def __init__(self, tokens: list[Token], name: Identifier | str, parent: Namespace = None):
         super().__init__(tokens, name, parent)
 
-        self.aliases      = []
-        self.classes      = []
-        self.declarations = []
-        self.enums        = []
-        self.functions    = []
-        self.interfaces   = []
-        self.nodes        = {}
-        self.namespaces   = []
-        self.structs      = []
-        self.unions       = []
+        self.aliases       = []
+        self.classes       = []
+        self.declarations  = []
+        self.enums         = []
+        self.functions     = []
+        self.interfaces    = []
+        self.nodes         = {}
+        self.ordered_nodes = {}
+        self.namespaces    = []
+        self.structs       = []
+        self.unions        = []
 
         if self.name == 'global':
             self.namespaces.append(StdNamespace(self))
@@ -335,6 +339,8 @@ class Namespace(Node):
 
             else:
                 self.error('unexpected token')
+
+        self.ordered_nodes = {k: v for k, v in sorted(self.nodes.items(), key=lambda x: x[0].lower())}
 
     def __repr__(self) -> str:
         return f'Namespace[{self.name}]'  # TODO ns repr
@@ -522,15 +528,17 @@ class Namespace(Node):
 
                 if not skip:
                     name = node.var_type.name
-                    if name.startswith('@'):
-                        name = name[1:]
                     if name.startswith('mut '):
                         name = name[4:]
                     if name.startswith('global.'):
                         name = name[7:]
+                    if name.startswith('@'):
+                        name = name[1:]
 
                     if name in self.nodes:
                         node.node = self.nodes[name]
+                    elif isinstance(node, Declaration):
+                        self.error('unknown declaration type', node.var_type.tokens)
                     else:
                         self.error('unknown declaration type', node.tokens)
 
@@ -548,14 +556,19 @@ class Namespace(Node):
 
         ...  # TODO resolve aliases
 
-    def tree(self, indent: int, last: bool = False) -> str:
-        parent_indent = f'{' ' * max(indent - 1, 0) * 3}{SYM_BAR}' if indent else ''
-        self_indent = ' ' * indent * 3
-        indent_ = f'\n{parent_indent}{self_indent}{SYM_T} '
+    def tree(self, prepend: str) -> str:
         ret = f'Namespace "{self.path}"'
 
-        last = self.unions or self.structs or self.namespaces or self.interfaces or self.functions or self.enums\
-            or self.declarations or self.classes or self.aliases
+        last = self.unions\
+            or self.structs\
+            or self.namespaces\
+            or self.interfaces\
+            or self.functions\
+            or self.enums\
+            or self.declarations\
+            or self.classes\
+            or self.aliases
+        last_index = len(last) - 1
 
         for arr in (
             self.aliases,
@@ -569,11 +582,11 @@ class Namespace(Node):
             self.unions
         ):
             for i, node in enumerate(arr):
-                is_last = False
-                if arr is last and i == len(last) - 1:
-                    indent_ = indent_.replace(SYM_T, SYM_L)
-                    is_last = True
-                ret += f'{indent_}{node.tree(indent + 1, is_last)}'
+                ret += f'\n{prepend}'
+                if arr is last and i == last_index:
+                    ret += f'{SYM_L}{node.tree(prepend + SYM_SPACE)}'
+                else:
+                    ret += f'{SYM_T}{node.tree(prepend + SYM_BAR)}'
 
         return ret
 
@@ -914,11 +927,18 @@ class Declaration(Node):
         expr = f' <{self.expr}>' if self.expr else ''
         return f'Declaration[{self.var_type} {self.name}{expr}]'
 
-    def tree(self, indent: int, last: bool = False) -> str:
-        ret = f'Declaration "{self.path}"{self.indent(indent, last)}{SYM_T if self.expr else SYM_L} '
-        ret += self.node.tree(indent + 1, not self.expr) if self.node else '*' + self.var_type.name
+    def tree(self, prepend: str) -> str:
+        ret = f'Declaration "{self.path}"'
+
+        ret += f'\n{prepend}{SYM_T if self.expr else SYM_L}'
+        if self.node:
+            ret += self.node.tree(prepend + (SYM_BAR if self.expr else SYM_SPACE))
+        else:
+            ret += '*' + self.var_type.name
+
         if self.expr:
-            ret += f'{self.indent(indent, last)}{SYM_L} {self.expr.tree(indent + 1, last)}'
+            ret += f'\n{prepend}{SYM_L}{self.expr.tree(prepend + SYM_SPACE)}'
+
         return ret
 
 
@@ -963,10 +983,12 @@ class Enum(Node):
     def __repr__(self) -> str:
         return f'Enum[{self.path} <{self.elements}>]'
 
-    def tree(self, indent: int, last: bool = False) -> str:
+    def tree(self, prepend: str) -> str:
         ret = f'Enum "{self.path}"'
+
         for i, e in enumerate(self.elements):
-            ret += f'{self.indent(indent, last)}{SYM_T if i < len(self.elements) - 1 else SYM_L} {e.name}({e.value})'
+            ret += f'\n{prepend}{SYM_T if i < len(self.elements) - 1 else SYM_L}{e.name}({e.value})'
+
         return ret
 
 
@@ -1275,10 +1297,6 @@ class Parser:
             for c in self.global_ns.classes:
                 f.write(f'\t{repr(c)}\n')
 
-            f.write('enums:\n')
-            for e in self.global_ns.enums:
-                f.write(f'\t{repr(e)}\n')
-
             f.write('functions:\n')
             for fn in self.global_ns.functions:
                 f.write(f'\t{repr(fn)}\n')
@@ -1291,12 +1309,8 @@ class Parser:
             for s in self.global_ns.structs:
                 f.write(f'\t{repr(s)}\n')
 
-            f.write('unions:\n')
-            for u in self.global_ns.unions:
-                f.write(f'\t{repr(u)}\n')
-
             f.write('-' * 50 + '\n')
-            tree = self.global_ns.tree(0)
+            tree = self.global_ns.tree('')
             f.write(tree + '\n')
 
 
@@ -1476,18 +1490,23 @@ class Union(Node):
         elements = ', '.join([repr(e) for e in self.elements])
         return f'Union[{self.path} <{params}> <{elements}>]'
 
-    def tree(self, indent: int, last: bool = False) -> str:
+    def tree(self, prepend: str) -> str:
         ret = f'Union "{self.path}"'
 
-        def _indent(i: int, last_index: int) -> str:
-            return f'{self.indent(indent, last)}{SYM_T if i < last_index else SYM_L}'
+        if self.params:
+            ret += f'\n{prepend}{SYM_T if self.elements else SYM_L}params'
+            for i, p in enumerate(self.params):
+                ret += f'\n{prepend}{SYM_BAR if self.elements else SYM_SPACE}{
+                    SYM_T if i < len(self.params) - 1 else SYM_L}{p.var_type.name} {p.name}'
 
-        for i, e in enumerate(self.params):
-            ret += f'{_indent(i, len(self.params) - 1)} {e.var_type.name} {e.name}'
-        for i, e in enumerate(self.elements):
-            ret += f'{_indent(i, len(self.elements) - 1)} {e.name}{f'({e.param.name})' if e.param else ''}'
+        if self.elements:
+            ret += f'\n{prepend}{SYM_L}elements'
+            for i, e in enumerate(self.elements):
+                ret += f'\n{prepend}{SYM_SPACE}{SYM_T if i < len(self.elements) - 1 else SYM_L}{
+                    e.name}{f'({e.param.name})' if e.param else ''}'
 
         return ret
+
 
 @dataclass
 class UnionElement(Node):
