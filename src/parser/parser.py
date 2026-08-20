@@ -7,10 +7,10 @@ from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
-SYM_BAR   = '\u2502   '            # "│   "
-SYM_L     = '\u2514\u2500\u2500 '  # "└── "
-SYM_SPACE = '    '
-SYM_T     = '\u251C\u2500\u2500 '  # "├── "
+SYM_BAR   = '\u2502  '            # "│   "
+SYM_L     = '\u2514\u2500 '  # "└── "
+SYM_SPACE = '   '
+SYM_T     = '\u251C\u2500 '  # "├── "
 
 
 @dataclass
@@ -256,7 +256,7 @@ class Alias(Node):
         return f'Alias[{self.old.name} {self.path}]'
 
     def tree(self, prepend: str) -> str:
-        return f'Alias "{self.path}"\n{prepend}{SYM_L}{self.old.name}'
+        return f'Alias "{self.path}"\n{prepend}{SYM_L}*{self.old.name}'  # TODO alias tree type
 
 
 @dataclass
@@ -857,6 +857,55 @@ class Inheritable(Node, ABC):
             [] if self.take_specific('Operator', ';') else self.make_block().tokens,
             self
         )
+
+    def tree(self, prepend: str) -> str:
+        ret = f'{self.__class__.__name__} "{self.name}"'
+
+        has_others = self.inheritance or self.members or self.override_members or self.methods or self.override_methods
+        if self.abstract or self.final:
+            ret += f'\n{prepend}{SYM_T if has_others else SYM_L}{'abstract' if self.abstract else 'final'}'
+
+        has_others = self.members or self.override_members or self.methods or self.override_methods
+        inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
+        if self.inheritance_nodes:
+            ret += f'\n{prepend}{SYM_T if has_others else SYM_L}inheritance'
+            for i, (_, n) in enumerate(self.inheritance_nodes.items()):
+                last = i < len(self.inheritance_nodes) - 1
+                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
+                    n.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+
+        has_others = self.override_members or self.methods or self.override_methods
+        inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
+        if self.members:
+            ret += f'\n{prepend}{SYM_T if has_others else SYM_L}members'
+            for i, m in enumerate(self.members):
+                last = i < len(self.members) - 1
+                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
+                    m.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+
+        has_others = self.methods or self.override_methods
+        inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
+        if self.override_members:
+            ret += f'\n{prepend}{SYM_T if has_others else SYM_L}override members'
+            for i, m in enumerate(self.override_members):
+                last = i < len(self.override_members) - 1
+                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
+                    m.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+
+        has_others = self.override_methods
+        inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
+        if self.methods:
+            ret += f'\n{prepend}{SYM_T if has_others else SYM_L}methods'
+            for i, m in enumerate(self.methods):
+                ret += f'\n{inner_prepend}{SYM_T if i < len(self.methods) - 1 else SYM_L}*{m.name}'  # TODO method tree
+
+        inner_prepend = prepend + SYM_SPACE
+        if self.override_methods:
+            ret += f'\n{prepend}{SYM_L}override methods'
+            for i, m in enumerate(self.override_methods):
+                ret += f'\n{inner_prepend}{SYM_T if i < len(self.override_methods) - 1 else SYM_L}*{m.name}'  # TODO override method tree
+
+        return ret
 
 
 class Class(Inheritable):
