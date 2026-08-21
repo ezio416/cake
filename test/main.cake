@@ -1,6 +1,6 @@
 alias i32 int;  // a comment
-alias <std.dict<int>&><i8, mut u16&, @type> func;
-alias std.dict<std.array<i8>> dai;
+// alias <std.dict<int>&><i8, mut u16&, @type> func;
+// alias std.dict<std.array<i8>> dai;
 
 class C : I, S {
     override {
@@ -98,7 +98,7 @@ i32 add(i32 i, i8 j) {
 
 interface I {
     void hello() { }
-    std.string bye() { return ""; }
+    // std.string bye() { return ""; }
     final i32 world(i8 i) { return 42; }
 }
 

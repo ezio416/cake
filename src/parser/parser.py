@@ -236,7 +236,7 @@ class Expression(Node, ABC):
     def __init__(self, tokens: list[Token], parent: Node):
         Node.__init__(self, tokens, '$expr', parent)
 
-        ...  # TODO expression
+        ...  # expression
 
     def __repr__(self) -> str:
         tokens = ' '.join([t.string for t in self.tokens])
@@ -261,8 +261,8 @@ class Alias(Node):
         self.old.parse(parser, self.path)
 
     def tree(self, prepend: str) -> str:
-        return f'Alias "{self.path}"\n{prepend}{SYM_L}{'' if self.old.primitive else '*'}{
-            self.old.name}'  # TODO alias tree type
+        return f'Alias "{self.path}"\n{prepend}{SYM_L}{
+            self.old.tree(prepend + SYM_SPACE)}'
 
 
 @dataclass
@@ -601,7 +601,7 @@ class Block(Node):
                     self.nodes.append(self.make_declaration())
                 except ParserError:
                     self.index = index
-                    ...  # TODO make accessor
+                    ...  # make accessor
 
             elif next.type_starter(False):
                 self.nodes.append(self.make_declaration())
@@ -835,40 +835,43 @@ class Inheritable(Node, ABC):
         if self.inheritance_nodes:
             ret += f'\n{prepend}{SYM_T if has_others else SYM_L}inheritance'
             for i, (_, n) in enumerate(self.inheritance_nodes.items()):
-                last = i < len(self.inheritance_nodes) - 1
-                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
-                    n.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+                middle = i < len(self.inheritance_nodes) - 1
+                ret += f'\n{inner_prepend}{SYM_T if middle else SYM_L}{
+                    n.tree(inner_prepend + (SYM_BAR if middle else SYM_SPACE))}'
 
         has_others = self.override_members or self.methods or self.override_methods
         inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
         if self.members:
             ret += f'\n{prepend}{SYM_T if has_others else SYM_L}members'
             for i, m in enumerate(self.members):
-                last = i < len(self.members) - 1
-                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
-                    m.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+                middle = i < len(self.members) - 1
+                ret += f'\n{inner_prepend}{SYM_T if middle else SYM_L}{
+                    m.tree(inner_prepend + (SYM_BAR if middle else SYM_SPACE))}'
 
         has_others = self.methods or self.override_methods
         inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
         if self.override_members:
             ret += f'\n{prepend}{SYM_T if has_others else SYM_L}override members'
             for i, m in enumerate(self.override_members):
-                last = i < len(self.override_members) - 1
-                ret += f'\n{inner_prepend}{SYM_T if last else SYM_L}{
-                    m.tree(inner_prepend + (SYM_BAR if last else SYM_SPACE))}'
+                middle = i < len(self.override_members) - 1
+                ret += f'\n{inner_prepend}{SYM_T if middle else SYM_L}{
+                    m.tree(inner_prepend + (SYM_BAR if middle else SYM_SPACE))}'
 
         has_others = self.override_methods
         inner_prepend = prepend + (SYM_BAR if has_others else SYM_SPACE)
         if self.methods:
             ret += f'\n{prepend}{SYM_T if has_others else SYM_L}methods'
             for i, m in enumerate(self.methods):
-                ret += f'\n{inner_prepend}{SYM_T if i < len(self.methods) - 1 else SYM_L}*{m.name}'  # TODO method tree
+                middle = i < len(self.methods) - 1
+                ret += f'\n{inner_prepend}{SYM_T if middle else SYM_L}{
+                    m.tree(SYM_BAR if middle else SYM_SPACE)}'
 
         inner_prepend = prepend + SYM_SPACE
         if self.override_methods:
             ret += f'\n{prepend}{SYM_L}override methods'
             for i, m in enumerate(self.override_methods):
-                ret += f'\n{inner_prepend}{SYM_T if i < len(self.override_methods) - 1 else SYM_L}*{m.name}'  # TODO override method tree
+                ret += f'\n{inner_prepend}{SYM_T if i < len(self.override_methods) - 1 else SYM_L}{
+                    m.tree(SYM_BAR if i < len(self.override_methods) - 1 else SYM_SPACE)}'
 
         return ret
 
@@ -941,14 +944,19 @@ class Declaration(Node):
         expr = f' <{self.expr}>' if self.expr else ''
         return f'Declaration[{self.var_type} {self.name}{expr}]'
 
+    def parse(self, parser: Parser):
+        self.var_type.parse(parser)
+        ...
+
     def tree(self, prepend: str) -> str:
         ret = f'Declaration "{self.path}"'
 
         ret += f'\n{prepend}{SYM_T if self.expr else SYM_L}'
+        _prepend = prepend + (SYM_BAR if self.expr else SYM_SPACE)
         if self.node:
-            ret += self.node.tree(prepend + (SYM_BAR if self.expr else SYM_SPACE))
+            ret += self.node.tree(_prepend)
         else:
-            ret += ('' if self.var_type.primitive else '*') + self.var_type.name
+            ret += self.var_type.tree(_prepend)
 
         if self.expr:
             ret += f'\n{prepend}{SYM_L}{self.expr.tree(prepend + SYM_SPACE)}'
@@ -1109,8 +1117,6 @@ class Type(Identifier):
     def __init__(self, token: Token | list[Token], held_type: Type = None):
         self.held_type = held_type
         if type(token) is Token:
-            if not token.of('Type') and not token.has('mut') and not token.of_has('Operator', '<'):
-                raise ParserError(token, 'expected type')
             self.token  = token
             self.tokens = []
             self.name   = token.string
@@ -1118,6 +1124,11 @@ class Type(Identifier):
             self.token  = token[0]
             self.tokens = token
             self.name   = ''.join([t.string for t in self.tokens])
+
+        if not self.token.type_starter()\
+            and not self.token.of_has('Operator', '@')\
+            and not self.token.of_has('Operator', '<'):
+            raise ParserError(self.token, 'expected type')
 
         self.mut = self.token.of_has('Special', 'mut')
         if self.mut:
@@ -1137,7 +1148,7 @@ class Type(Identifier):
         return f'Type[{self.name}]'
 
     def parse(self, parser: Parser, path: str = ''):
-        if self.token.of('Type'):
+        if self.primitive:
             if self.held_type:
                 raise ParserError('primitives cannot hold other types', self.held_type.tokens)
             return
@@ -1145,7 +1156,23 @@ class Type(Identifier):
         if self.held_type:
             self.held_type.parse(parser)
 
-        return
+        name = self.name
+        if name.startswith('mut '):
+            name = name[4:]
+        if name.startswith('global.'):
+            name = name[7:]
+        if name.startswith('@'):
+            name = name[1:]
+        if name.endswith('&'):
+            name = name[:-1]
+
+        parts = [t.string for t in self.tokens]
+
+        if name in parser.global_ns.nodes:
+            self.node = parser.global_ns.nodes[name]
+
+    def tree(self, prepend: str) -> str:
+        return self.node.tree(prepend) if self.node else self.name
 
 
 @dataclass
@@ -1290,6 +1317,12 @@ class Method(Member, Function):
         modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
         return f'Method[{modifiers}{Function.__repr__(self).replace('Function[', '')}'
 
+    def parse(self, parser: Parser):
+        Function.parse(self, parser)
+
+    def tree(self, prepend: str) -> str:
+        return Function.tree(self, prepend)
+
 
 class Paren(Expression):
     def __init__(self, tokens: list[Token], parent: Node):
@@ -1374,7 +1407,7 @@ class Return(SimpleStatement):
 
 
 class StdNamespace(BareNamespace):
-    def __init__(self, parent: Namespace = None):
+    def __init__(self, parent: Namespace):
         super().__init__('std', parent)
 
     def __repr__(self) -> str:
@@ -1518,19 +1551,26 @@ class Union(Node):
         elements = ', '.join([repr(e) for e in self.elements])
         return f'Union[{self.path} <{params}> <{elements}>]'
 
+    def parse(self, parser: Parser):
+        for p in self.params:
+            p.parse(parser)
+
     def tree(self, prepend: str) -> str:
         ret = f'Union "{self.path}"'
 
         if self.params:
             ret += f'\n{prepend}{SYM_T if self.elements else SYM_L}params'
             for i, p in enumerate(self.params):
-                ret += f'\n{prepend}{SYM_BAR if self.elements else SYM_SPACE}{
-                    SYM_T if i < len(self.params) - 1 else SYM_L}{p.var_type.name} {p.name}'
+                _prepend = prepend + (SYM_BAR if self.elements else SYM_SPACE)
+                middle = i < len(self.params) - 1
+                ret += f'\n{_prepend}{SYM_T if middle else SYM_L}{
+                    p.var_type.tree(_prepend + (SYM_BAR if middle else SYM_SPACE))}'
 
         if self.elements:
             ret += f'\n{prepend}{SYM_L}elements'
             for i, e in enumerate(self.elements):
-                ret += f'\n{prepend}{SYM_SPACE}{SYM_T if i < len(self.elements) - 1 else SYM_L}{
+                middle = i < len(self.elements) - 1
+                ret += f'\n{prepend}{SYM_SPACE}{SYM_T if middle else SYM_L}{
                     e.name}{f'({e.param.name})' if e.param else ''}'
 
         return ret
