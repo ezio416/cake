@@ -834,7 +834,7 @@ class Inheritable(Node, ABC):
         ...  # parse2 inheritable
 
     def tree(self, prepend: str) -> str:
-        ret = f'{self.__class__.__name__} "{self.name}"'
+        ret = f'{self.__class__.__name__} "{self.path}"'
 
         has_others = self.inheritance or self.members or self.override_members or self.methods or self.override_methods
         if self.abstract or self.final:
