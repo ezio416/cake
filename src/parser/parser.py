@@ -208,7 +208,7 @@ class Node(ABC):
 
         return Type(tokens, held_type)
 
-    def parse(self, parser: Parser):
+    def parse2(self, parser: Parser):
         if self.__class__.__name__ not in parser.unimpl:
             parser.unimpl.add(self.__class__.__name__)
             print(f'warning: 2nd pass not implemented for {self.__class__.__name__}')
@@ -257,8 +257,8 @@ class Alias(Node):
     def __repr__(self) -> str:
         return f'Alias[{self.old.name} {self.path}]'
 
-    def parse(self, parser: Parser):
-        self.old.parse(parser, self.path)
+    def parse2(self, parser: Parser):
+        self.old.parse2(parser, self.path)
 
     def tree(self, prepend: str) -> str:
         return f'Alias "{self.path}"\n{prepend}{SYM_L}{
@@ -517,9 +517,9 @@ class Namespace(Node):
         for p in self.unions[-1].params:
             self.add_node(p)
 
-    def parse(self, parser: Parser):
+    def parse2(self, parser: Parser):
         for node in self.nodes.values():
-            node.parse(parser)
+            node.parse2(parser)
 
     def tree(self, prepend: str) -> str:
         ret = f'Namespace "{self.path}"'
@@ -823,6 +823,16 @@ class Inheritable(Node, ABC):
             self
         )
 
+    def parse2(self, parser: Parser):
+        for i in self.inheritance:
+            i.parse2(parser)
+            if i.node:
+                self.inheritance_nodes[i.name] = i.node
+            else:
+                self.error('inherited type not found', i.tokens)
+
+        ...  # parse2 inheritable
+
     def tree(self, prepend: str) -> str:
         ret = f'{self.__class__.__name__} "{self.name}"'
 
@@ -944,8 +954,8 @@ class Declaration(Node):
         expr = f' <{self.expr}>' if self.expr else ''
         return f'Declaration[{self.var_type} {self.name}{expr}]'
 
-    def parse(self, parser: Parser):
-        self.var_type.parse(parser)
+    def parse2(self, parser: Parser):
+        self.var_type.parse2(parser)
         ...
 
     def tree(self, prepend: str) -> str:
@@ -1147,14 +1157,14 @@ class Type(Identifier):
     def __repr__(self) -> str:
         return f'Type[{self.name}]'
 
-    def parse(self, parser: Parser, path: str = ''):
+    def parse2(self, parser: Parser, path: str = ''):
         if self.primitive:
             if self.held_type:
                 raise ParserError('primitives cannot hold other types', self.held_type.tokens)
             return
 
         if self.held_type:
-            self.held_type.parse(parser)
+            self.held_type.parse2(parser)
 
         name = self.name
         if name.startswith('mut '):
@@ -1317,8 +1327,8 @@ class Method(Member, Function):
         modifiers = f'<{' '.join([m.string for m in self.modifiers])}> ' if self.modifiers else ''
         return f'Method[{modifiers}{Function.__repr__(self).replace('Function[', '')}'
 
-    def parse(self, parser: Parser):
-        Function.parse(self, parser)
+    def parse2(self, parser: Parser):
+        Function.parse2(self, parser)
 
     def tree(self, prepend: str) -> str:
         return Function.tree(self, prepend)
@@ -1347,7 +1357,7 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens in "global"')
         self.global_ns = Namespace(self.tokens, 'global')
-        self.global_ns.parse(self)  # 2nd+ passes
+        self.global_ns.parse2(self)  # 2nd+ passes
 
     def take(self) -> Token:
         token = self.next()
@@ -1551,9 +1561,9 @@ class Union(Node):
         elements = ', '.join([repr(e) for e in self.elements])
         return f'Union[{self.path} <{params}> <{elements}>]'
 
-    def parse(self, parser: Parser):
+    def parse2(self, parser: Parser):
         for p in self.params:
-            p.parse(parser)
+            p.parse2(parser)
 
     def tree(self, prepend: str) -> str:
         ret = f'Union "{self.path}"'
