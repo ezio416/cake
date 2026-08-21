@@ -256,7 +256,8 @@ class Alias(Node):
         return f'Alias[{self.old.name} {self.path}]'
 
     def tree(self, prepend: str) -> str:
-        return f'Alias "{self.path}"\n{prepend}{SYM_L}*{self.old.name}'  # TODO alias tree type
+        return f'Alias "{self.path}"\n{prepend}{SYM_L}{'' if self.old.primitive else '*'}{
+            self.old.name}'  # TODO alias tree type
 
 
 @dataclass
@@ -517,16 +518,7 @@ class Namespace(Node):
                 ...  # TODO block 2nd pass
 
             elif isinstance(node, Declaration):
-                skip = False
-                if not node.var_type:
-                    skip = True
-                else:
-                    for token in node.var_type.tokens:
-                        if token.of('Type'):
-                            skip = True
-                            break
-
-                if not skip:
+                if node.var_type and not node.var_type.primitive:
                     name = node.var_type.name
                     if name.startswith('mut '):
                         name = name[4:]
@@ -537,10 +529,8 @@ class Namespace(Node):
 
                     if name in self.nodes:
                         node.node = self.nodes[name]
-                    elif isinstance(node, Declaration):
-                        self.error('unknown declaration type', node.var_type.tokens)
                     else:
-                        self.error('unknown declaration type', node.tokens)
+                        self.error('unknown declaration type', node.var_type.tokens)
 
                     ...
 
@@ -983,7 +973,7 @@ class Declaration(Node):
         if self.node:
             ret += self.node.tree(prepend + (SYM_BAR if self.expr else SYM_SPACE))
         else:
-            ret += '*' + self.var_type.name
+            ret += ('' if self.var_type.primitive else '*') + self.var_type.name
 
         if self.expr:
             ret += f'\n{prepend}{SYM_L}{self.expr.tree(prepend + SYM_SPACE)}'
@@ -1137,6 +1127,7 @@ class Identifier:
 class Type(Identifier):
     held_type: Type | None
     mut:       bool
+    primitive: bool
     tokens:    list[Token]
 
     def __init__(self, token: Token | list[Token], held_type: Type = None):
@@ -1155,6 +1146,12 @@ class Type(Identifier):
         self.mut = self.token.of_has('Special', 'mut')
         if self.mut:
             self.name = f'mut {self.name[3:]}'
+
+        self.primitive = False
+        for token in self.tokens:
+            if token.of('Type'):
+                self.primitive = True
+                break
 
     def __repr__(self) -> str:
         return f'Type[{self.name}]'
