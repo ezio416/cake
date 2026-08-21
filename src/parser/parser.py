@@ -7,7 +7,7 @@ from ..lexer import Token
 from ..util import LanguageError, debug_header
 
 
-SYM_BAR   = '\u2502  '            # "│   "
+SYM_BAR   = '\u2502  '       # "│   "
 SYM_L     = '\u2514\u2500 '  # "└── "
 SYM_SPACE = '   '
 SYM_T     = '\u251C\u2500 '  # "├── "
@@ -58,9 +58,6 @@ class Node(ABC):
         if has and not self.next.has(has):
             self.error(f'expected "{has}"')
         return self.take()
-
-    def indent(self, indent: int, last: bool = False) -> str:
-        return f'\n{SYM_BAR * (indent - 1)}{SYM_SPACE if last else SYM_BAR}'
 
     def last_of_has(self, of: str, has: str) -> bool:
         return self.last.of_has(of, has) if self.last else False
@@ -211,6 +208,11 @@ class Node(ABC):
 
         return Type(tokens, held_type)
 
+    def parse(self, parser: Parser):
+        if self.__class__.__name__ not in parser.unimpl:
+            parser.unimpl.add(self.__class__.__name__)
+            print(f'warning: 2nd pass not implemented for {self.__class__.__name__}')
+
     def peek(self, ahead: int = 1) -> Token:
         if self.index + ahead - 1 >= len(self.tokens):
             return Token('EOF', None)
@@ -254,6 +256,9 @@ class Alias(Node):
 
     def __repr__(self) -> str:
         return f'Alias[{self.old.name} {self.path}]'
+
+    def parse(self, parser: Parser):
+        self.old.parse(parser, self.path)
 
     def tree(self, prepend: str) -> str:
         return f'Alias "{self.path}"\n{prepend}{SYM_L}{'' if self.old.primitive else '*'}{
@@ -512,39 +517,9 @@ class Namespace(Node):
         for p in self.unions[-1].params:
             self.add_node(p)
 
-    def parse(self):
+    def parse(self, parser: Parser):
         for node in self.nodes.values():
-            if type(node) is Block:
-                ...  # TODO block 2nd pass
-
-            elif isinstance(node, Declaration):
-                if node.var_type and not node.var_type.primitive:
-                    name = node.var_type.name
-                    if name.startswith('mut '):
-                        name = name[4:]
-                    if name.startswith('global.'):
-                        name = name[7:]
-                    if name.startswith('@'):
-                        name = name[1:]
-
-                    if name in self.nodes:
-                        node.node = self.nodes[name]
-                    else:
-                        self.error('unknown declaration type', node.var_type.tokens)
-
-                    ...
-
-            elif isinstance(node, Inheritable):
-                for i in node.inheritance:
-                    if (name := i.name[7:] if i.name.startswith('global.') else i.name) in self.nodes:
-                        node.inheritance_nodes[name] = self.nodes[name]
-                    else:
-                        self.error('unknown inherited type', i.tokens)
-
-            elif False:
-                ...  # TODO more second pass
-
-        ...  # TODO resolve aliases
+            node.parse(parser)
 
     def tree(self, prepend: str) -> str:
         ret = f'Namespace "{self.path}"'
@@ -1127,6 +1102,7 @@ class Identifier:
 class Type(Identifier):
     held_type: Type | None
     mut:       bool
+    node:      Node | None
     primitive: bool
     tokens:    list[Token]
 
@@ -1145,7 +1121,11 @@ class Type(Identifier):
 
         self.mut = self.token.of_has('Special', 'mut')
         if self.mut:
+            if len(self.tokens) == 1:
+                raise ParserError(self.token, 'expected type after "mut" keyword')
             self.name = f'mut {self.name[3:]}'
+
+        self.node = None
 
         self.primitive = False
         for token in self.tokens:
@@ -1155,6 +1135,17 @@ class Type(Identifier):
 
     def __repr__(self) -> str:
         return f'Type[{self.name}]'
+
+    def parse(self, parser: Parser, path: str = ''):
+        if self.token.of('Type'):
+            if self.held_type:
+                raise ParserError('primitives cannot hold other types', self.held_type.tokens)
+            return
+
+        if self.held_type:
+            self.held_type.parse(parser)
+
+        return
 
 
 @dataclass
@@ -1169,6 +1160,7 @@ class FunctionType(Type):
         super().__init__(first_token, return_type)
         self.held_type = return_type
         self.param_types = param_types
+        self.primitive = False
 
         self.name = f'<{self.return_type}><{', '.join([t.name for t in self.param_types])}>'
 
@@ -1309,10 +1301,12 @@ class Parser:
     global_ns:  Namespace
     output_dir: str
     tokens:     list[Token]
+    unimpl:     set[str]
 
     def __init__(self, tokens: list[Token], output_dir: str = ''):
         self.tokens     = tokens
         self.output_dir = output_dir
+        self.unimpl     = set()
 
     def next(self) -> Token:
         return self.tokens[self.index]
@@ -1320,7 +1314,7 @@ class Parser:
     def parse(self) -> None:
         print(f'parsing {len(self.tokens)} tokens in "global"')
         self.global_ns = Namespace(self.tokens, 'global')
-        self.global_ns.parse()  # 2nd, 3rd passes
+        self.global_ns.parse(self)  # 2nd+ passes
 
     def take(self) -> Token:
         token = self.next()
@@ -1339,21 +1333,9 @@ class Parser:
         ) as f:
             f.write(debug_header('step 3: parser'))
 
-            f.write('classes:\n')
-            for c in self.global_ns.classes:
-                f.write(f'\t{repr(c)}\n')
-
             f.write('functions:\n')
             for fn in self.global_ns.functions:
                 f.write(f'\t{repr(fn)}\n')
-
-            f.write('interfaces:\n')
-            for i in self.global_ns.interfaces:
-                f.write(f'\t{repr(i)}\n')
-
-            f.write('structs:\n')
-            for s in self.global_ns.structs:
-                f.write(f'\t{repr(s)}\n')
 
             f.write('-' * 50 + '\n')
             tree = self.global_ns.tree('')
